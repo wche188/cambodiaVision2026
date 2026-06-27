@@ -1,0 +1,39 @@
+{
+  "name": "cambodia-vision-2026",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack",
+    "build": "next build --turbopack",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest --run"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "browser-image-compression": "^2.0.2",
+    "docx-pdf": "^0.0.1",
+    "docxtemplater": "^3.66.7",
+    "docxtemplater-image-module-free": "^1.1.1",
+    "file-saver": "^2.0.5",
+    "html5-qrcode": "^2.3.8",
+    "iron-session": "^8.0.4",
+    "jspdf": "^3.0.3",
+    "lucide-react": "^0.546.0",
+    "mysql2": "^3.16.3",
+    "next": "15.5.7",
+    "pizzip": "^3.2.0",
+    "qrcode": "^1.5.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-hot-toast": "^2.6.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.5",
+    "tailwindcss": "^4",
+    "vitest": "^4.1.9"
+  }
+}
