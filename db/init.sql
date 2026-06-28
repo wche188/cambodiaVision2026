@@ -19,11 +19,11 @@ CREATE TABLE IF NOT EXISTS patients (
     reason_for_visit TEXT,
     photo LONGTEXT,
     status ENUM(
-        'Registered', 'Form_Printed', 'In_Progress',
+        'Registered', 'Form_Printed', 'In_Progress', 'Seen_by_GP',
         'Prepare_for_Surgery', 'Surgery_Completed',
         'Surgery_Eligible', 'Not_Eligible', 'Surgery_Scheduled', 'Complete'
     ) NOT NULL DEFAULT 'Registered',
-    stations_visited JSON DEFAULT '[]',
+    stations_visited JSON,
     form_printed TINYINT(1) DEFAULT 0,
     treatment VARCHAR(255),
     anaesthesia_date DATE,

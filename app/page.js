@@ -39,7 +39,11 @@ export default function Dashboard() {
       let url = '/api/patients';
       const params = [];
       if (statusFilter) params.push(`status=${encodeURIComponent(statusFilter)}`);
-      if (searchQuery.trim()) params.push(`patient_number=${encodeURIComponent(searchQuery.trim())}`);
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim();
+        params.push(`patient_number=${encodeURIComponent(q)}`);
+        params.push(`search=${encodeURIComponent(q)}`);
+      }
       if (params.length) url += '?' + params.join('&');
 
       const response = await fetch(url);

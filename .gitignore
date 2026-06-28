@@ -44,3 +44,8 @@ next-env.d.ts
 # certificates (local dev only)
 certificates/
 certs/
+
+# local-only tooling / scratch files (not for the repo)
+smoke-100.js
+.xiaxia-suggestions.md
+/tmp/
