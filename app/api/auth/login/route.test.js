@@ -56,28 +56,28 @@ describe('POST /api/auth/login', () => {
       expect(data.error).toBe('Too many login attempts. Please wait before retrying.');
     });
 
-    it('extracts IP from x-forwarded-for header', async () => {
+    it('uses generic client key for rate limiting (LAN deployment)', async () => {
       checkRateLimit.mockReturnValue({ allowed: false, remaining: 0 });
 
       await POST(makeRequest({}, { 'x-forwarded-for': '1.2.3.4, 5.6.7.8' }));
 
-      expect(checkRateLimit).toHaveBeenCalledWith('1.2.3.4');
+      expect(checkRateLimit).toHaveBeenCalledWith('client');
     });
 
-    it('extracts IP from x-real-ip header as fallback', async () => {
+    it('uses generic client key regardless of x-real-ip header', async () => {
       checkRateLimit.mockReturnValue({ allowed: false, remaining: 0 });
 
       await POST(makeRequest({}, { 'x-real-ip': '10.0.0.1' }));
 
-      expect(checkRateLimit).toHaveBeenCalledWith('10.0.0.1');
+      expect(checkRateLimit).toHaveBeenCalledWith('client');
     });
 
-    it('uses "unknown" when no IP headers present', async () => {
+    it('uses generic client key when no IP headers present', async () => {
       checkRateLimit.mockReturnValue({ allowed: false, remaining: 0 });
 
       await POST(makeRequest({}));
 
-      expect(checkRateLimit).toHaveBeenCalledWith('unknown');
+      expect(checkRateLimit).toHaveBeenCalledWith('client');
     });
   });
 

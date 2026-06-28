@@ -77,6 +77,14 @@ export async function POST(request) {
         registration_date,
       } = body;
 
+      // Validate age is a number if provided
+      if (age !== undefined && age !== null && (typeof age !== 'number' || isNaN(age))) {
+        return Response.json(
+          { data: null, error: 'Invalid input' },
+          { status: 400 }
+        );
+      }
+
       const query = `
         INSERT INTO patients (
           patient_number, gender, is_pregnant, blood_group, family_name, given_name,
@@ -119,7 +127,10 @@ export async function POST(request) {
           { status: 409 }
         );
       }
-      throw error;
+      return Response.json(
+        { data: null, error: 'Invalid input' },
+        { status: 400 }
+      );
     }
   });
 }

@@ -31,6 +31,8 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [counts, setCounts] = useState({});
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   const fetchPatients = useCallback(async () => {
     try {
@@ -122,8 +124,13 @@ export default function Dashboard() {
 
   const handleFilterChange = (status) => {
     setStatusFilter(status === statusFilter ? '' : status);
+    setPage(1);
     setLoading(true);
   };
+
+  // Paginate patients
+  const totalPages = Math.ceil(patients.length / PAGE_SIZE);
+  const paginatedPatients = patients.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -212,7 +219,7 @@ export default function Dashboard() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setLoading(true); }}
+              onChange={(e) => { setSearchQuery(e.target.value); setPage(1); setLoading(true); }}
               placeholder="Search by patient number..."
               className="w-full sm:w-64 px-4 py-3 min-h-[44px] pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
             />
@@ -221,7 +228,7 @@ export default function Dashboard() {
             </svg>
             {searchQuery && (
               <button
-                onClick={() => { setSearchQuery(''); setLoading(true); }}
+                onClick={() => { setSearchQuery(''); setPage(1); setLoading(true); }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 ✕
@@ -323,7 +330,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {patients.map((patient) => (
+                    {paginatedPatients.map((patient) => (
                       <tr key={patient.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => router.push(`/patient/${patient.id}`)}>
                         <td className="px-4 py-3 text-sm font-mono text-gray-600">
                           {String(patient.patient_number).padStart(4, '0')}
@@ -351,7 +358,7 @@ export default function Dashboard() {
 
               {/* Mobile Cards */}
               <div className="md:hidden space-y-3">
-                {patients.map((patient) => (
+                {paginatedPatients.map((patient) => (
                   <div key={patient.id} onClick={() => router.push(`/patient/${patient.id}`)} className="cursor-pointer">
                     <PatientCard patient={patient}>
                       <PatientActivities patient={patient} />
@@ -359,6 +366,31 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-500">
+                    Page {page} of {totalPages} ({patients.length} patients)
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className="px-4 py-2 min-h-[44px] text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      ← Prev
+                    </button>
+                    <button
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className="px-4 py-2 min-h-[44px] text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </section>
@@ -393,14 +425,15 @@ function PatientActivities({ patient }) {
     <div className="flex items-center gap-1.5 flex-wrap">
       {/* Form printed indicator */}
       <span
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
+        className={`inline-flex items-center gap-0.5 w-12 h-7 rounded text-xs font-medium justify-center ${
           patient.form_printed
             ? 'bg-green-100 text-green-700'
-            : 'bg-gray-100 text-gray-400'
+            : 'bg-gray-50 text-gray-300'
         }`}
         title={patient.form_printed ? 'Form printed' : 'Not printed'}
       >
-        🖨️ {patient.form_printed ? '✓' : ''}
+        <span className="w-4 text-center">🖨️</span>
+        <span className="w-3 text-center">{patient.form_printed ? '✓' : ''}</span>
       </span>
 
       {/* Station stamps */}
@@ -409,14 +442,15 @@ function PatientActivities({ patient }) {
         return (
           <span
             key={key}
-            className={`inline-flex items-center gap-0.5 px-2 py-1 rounded text-xs font-medium ${
+            className={`inline-flex items-center gap-0.5 w-12 h-7 rounded text-xs font-medium justify-center ${
               visited
                 ? 'bg-blue-100 text-blue-700'
                 : 'bg-gray-50 text-gray-300'
             }`}
             title={visited ? `${label}: attended` : `${label}: not yet`}
           >
-            {icon} {visited && '✓'}
+            <span className="w-4 text-center">{icon}</span>
+            <span className="w-3 text-center">{visited ? '✓' : ''}</span>
           </span>
         );
       })}

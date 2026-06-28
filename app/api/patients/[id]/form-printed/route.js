@@ -1,10 +1,16 @@
 import { withDb } from '@/lib/mysql';
+import { getSession } from '@/lib/session';
 
 /**
  * POST /api/patients/[id]/form-printed
  * Marks the patient's registration form as printed/downloaded.
  */
 export async function POST(request, { params }) {
+  const session = await getSession();
+  if (session.role !== 'admin' && session.role !== 'station_manager') {
+    return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   return withDb(async (pool) => {
     const { id } = await params;
 

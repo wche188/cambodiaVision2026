@@ -33,7 +33,8 @@ export default function StationPage() {
     setConfirmResult(null);
 
     setTimeout(async () => {
-      if (!scannerRef.current) return;
+      const element = document.getElementById('qr-reader');
+      if (!element) return;
 
       const html5Qrcode = new Html5Qrcode('qr-reader');
       scannerInstanceRef.current = html5Qrcode;
@@ -88,7 +89,7 @@ export default function StationPage() {
         setScanning(false);
         setConfirmResult({ success: false, message: 'Could not access camera' });
       }
-    }, 100);
+    }, 500);
   };
 
   const stopScanning = () => {
@@ -271,6 +272,15 @@ export default function StationPage() {
                 {confirming ? 'Confirming...' : 'Confirm ✓'}
               </button>
             </div>
+            {/* Download Surgery Form — only for Doctor and Surgery station managers */}
+            {(session?.assignedStation === 'Doctor' || session?.assignedStation === 'Surgery') && (
+              <a
+                href={`/api/generate-pdf/${scannedPatient.id}?type=surgery`}
+                className="block w-full py-3 min-h-[44px] text-center bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+              >
+                📄 Download Surgery Form
+              </a>
+            )}
           </div>
         )}
 
@@ -463,6 +473,12 @@ function SurgeryForm({ patient, onCancel, onComplete, onError }) {
         </p>
         <p className="text-sm text-gray-500 font-mono">#{patient.patient_number}</p>
         <p className="text-sm font-medium text-blue-700 mt-1">Surgery Record</p>
+        <a
+          href={`/api/generate-pdf/${patient.id}?type=surgery`}
+          className="inline-flex items-center gap-1 mt-2 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700"
+        >
+          📄 Download Surgery Form
+        </a>
       </div>
 
       {/* Eye selection */}

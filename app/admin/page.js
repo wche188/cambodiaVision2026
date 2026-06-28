@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { UserPlus, Trash2, KeyRound, ShieldCheck, Upload, FileText } from 'lucide-react';
+import { UserPlus, Trash2, KeyRound, ShieldCheck, Upload, FileText, Download } from 'lucide-react';
 import BilingualLabel from '@/app/components/BilingualLabel';
 import { t } from '@/lib/translations';
 
@@ -136,11 +136,20 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <ShieldCheck className="h-8 w-8 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">
-            <BilingualLabel labelKey="admin.title" />
-          </h1>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-8 w-8 text-blue-600" />
+            <h1 className="text-2xl font-bold text-gray-900">
+              <BilingualLabel labelKey="admin.title" />
+            </h1>
+          </div>
+          <a
+            href="/api/admin/backup"
+            className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-900 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            Backup DB
+          </a>
         </div>
 
         {/* Alerts */}

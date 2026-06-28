@@ -48,6 +48,9 @@ export default function PatientDetailPage() {
   }, [id, router]);
 
   const isAdmin = session?.role === 'admin';
+  const isStationManager = session?.role === 'station_manager';
+  const canEditStations = isAdmin;
+  const canDownloadSurgeryForm = isAdmin || isStationManager;
 
   const toggleStation = async (station) => {
     if (!isAdmin) return;
@@ -129,18 +132,24 @@ export default function PatientDetailPage() {
               <div className="mt-4 flex flex-wrap gap-3">
                 <a
                   href={`/api/generate-pdf/${patient.id}?type=registration`}
+                  onClick={() => {
+                    // Mark as printed locally so the UI updates
+                    setPatient(prev => prev ? { ...prev, form_printed: 1 } : prev);
+                  }}
                   className="inline-flex items-center gap-2 px-4 py-2 min-h-[44px] bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
                 >
                   <FileText className="w-4 h-4" />
                   Registration Form
                 </a>
-                <a
-                  href={`/api/generate-pdf/${patient.id}?type=surgery`}
-                  className="inline-flex items-center gap-2 px-4 py-2 min-h-[44px] bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <FileText className="w-4 h-4" />
-                  Surgery Form
-                </a>
+                {canDownloadSurgeryForm && (
+                  <a
+                    href={`/api/generate-pdf/${patient.id}?type=surgery`}
+                    className="inline-flex items-center gap-2 px-4 py-2 min-h-[44px] bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Surgery Form
+                  </a>
+                )}
               </div>
             </div>
 
@@ -157,7 +166,7 @@ export default function PatientDetailPage() {
         </section>
 
         {/* Patient Journey Tracker */}
-        <PatientJourney stationsVisited={patient.stations_visited} isAdmin={isAdmin} onToggle={toggleStation} />
+        <PatientJourney stationsVisited={patient.stations_visited} isAdmin={canEditStations} onToggle={toggleStation} />
 
         {/* Contact & Address */}
         <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
