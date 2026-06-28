@@ -77,7 +77,12 @@ export async function PUT(request, { params }) {
     values.push(id);
 
     const query = `UPDATE patients SET ${fields.join(', ')} WHERE id = ?`;
-    await pool.execute(query, values);
+    const [result] = await pool.execute(query, values);
+
+    // If no row was affected, the patient doesn't exist
+    if (result.affectedRows === 0) {
+      return Response.json({ data: null, error: 'Patient not found' }, { status: 404 });
+    }
 
     // Fetch updated patient
     const [rows] = await pool.execute(

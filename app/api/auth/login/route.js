@@ -1,19 +1,26 @@
 // app/api/auth/login/route.js
 import bcrypt from 'bcryptjs';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { checkRateLimit, resetRateLimit } from '@/lib/rate-limit';
 import { getSession } from '@/lib/session';
 import { withDb } from '@/lib/mysql';
 
-export async function POST(request) {
-  // LAN deployment: don't trust X-Forwarded-For (spoofable). Use a generic key.
-  const ip = 'client';
+// LAN deployment: don't trust X-Forwarded-For (spoofable). Use a generic key.
+const RATE_LIMIT_KEY = 'client';
 
+export async function POST(request) {
   // Check rate limit before any authentication attempt
-  const rateLimit = checkRateLimit(ip);
+  const rateLimit = checkRateLimit(RATE_LIMIT_KEY);
   if (!rateLimit.allowed) {
     return Response.json(
       { error: 'Too many login attempts. Please wait before retrying.' },
-      { status: 429 }
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(rateLimit.retryAfter),
+          'X-RateLimit-Limit': '10',
+          'X-RateLimit-Remaining': '0',
+        },
+      }
     );
   }
 
@@ -78,6 +85,9 @@ async function handleVolunteerLogin({ passphrase }) {
     session.lastActive = Date.now();
     await session.save();
 
+    // Successful login — clear the rate limit
+    resetRateLimit(RATE_LIMIT_KEY);
+
     return Response.json(
       { message: 'Login successful', role: 'volunteer' },
       { status: 200 }
@@ -122,6 +132,9 @@ async function handleAdminLogin({ username, password }) {
     session.assignedStation = user.assigned_station || null;
     session.lastActive = Date.now();
     await session.save();
+
+    // Successful login — clear the rate limit
+    resetRateLimit(RATE_LIMIT_KEY);
 
     return Response.json(
       { message: 'Login successful', role: user.role || 'admin', username, assignedStation: user.assigned_station || null },

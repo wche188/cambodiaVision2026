@@ -1,5 +1,6 @@
 import { withDb } from '@/lib/mysql';
 import { getSession } from '@/lib/session';
+import { checkRateLimit } from '@/lib/rate-limit';
 import bcrypt from 'bcryptjs';
 
 /**
@@ -11,6 +12,23 @@ export async function GET(request) {
   const session = await getSession();
   if (!session?.username || session.role !== 'admin') {
     return Response.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  // Rate-limit backup downloads (full DB dump — expensive).
+  // Key on session username so admins don't lock each other out.
+  const limit = checkRateLimit(`backup:${session.username}`);
+  if (!limit.allowed) {
+    return Response.json(
+      { error: 'Too many backup downloads. Please wait before retrying.' },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(limit.retryAfter),
+          'X-RateLimit-Limit': '10',
+          'X-RateLimit-Remaining': '0',
+        },
+      }
+    );
   }
 
   const confirmPwd = request.headers.get('x-confirm-password');
