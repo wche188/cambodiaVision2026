@@ -5,10 +5,8 @@ import { getSession } from '@/lib/session';
 import { withDb } from '@/lib/mysql';
 
 export async function POST(request) {
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    request.headers.get('x-real-ip') ||
-    'unknown';
+  // LAN deployment: don't trust X-Forwarded-For (spoofable). Use a generic key.
+  const ip = 'client';
 
   // Check rate limit before any authentication attempt
   const rateLimit = checkRateLimit(ip);

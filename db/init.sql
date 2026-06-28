@@ -19,10 +19,12 @@ CREATE TABLE IF NOT EXISTS patients (
     reason_for_visit TEXT,
     photo LONGTEXT,
     status ENUM(
-        'Registered', 'In_Progress', 'Surgery_Eligible',
-        'Not_Eligible', 'Surgery_Scheduled', 'Complete'
+        'Registered', 'Form_Printed', 'In_Progress',
+        'Prepare_for_Surgery', 'Surgery_Completed',
+        'Surgery_Eligible', 'Not_Eligible', 'Surgery_Scheduled', 'Complete'
     ) NOT NULL DEFAULT 'Registered',
     stations_visited JSON DEFAULT '[]',
+    form_printed TINYINT(1) DEFAULT 0,
     treatment VARCHAR(255),
     anaesthesia_date DATE,
     surgery_date DATE,
@@ -84,6 +86,8 @@ CREATE TABLE IF NOT EXISTS admin_users (
     username VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(255),
+    role ENUM('admin', 'station_manager') NOT NULL DEFAULT 'admin',
+    assigned_station VARCHAR(50) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -94,3 +98,57 @@ CREATE TABLE IF NOT EXISTS system_config (
     config_value TEXT NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Surgeons list
+CREATE TABLE IF NOT EXISTS surgeons (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    active TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Surgery records (detailed surgery data per patient)
+CREATE TABLE IF NOT EXISTS surgery_records (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT NOT NULL,
+    eye ENUM('left', 'right', 'both') NOT NULL,
+    procedure_type TEXT,
+    iol_type TEXT,
+    incision TEXT,
+    also_used JSON,
+    complications JSON,
+    surgeon_id INT NOT NULL,
+    surgeon_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+    FOREIGN KEY (surgeon_id) REFERENCES surgeons(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Station queue status (busy levels)
+CREATE TABLE IF NOT EXISTS station_status (
+    station VARCHAR(50) PRIMARY KEY,
+    busy_level ENUM('low', 'mid', 'high') NOT NULL DEFAULT 'mid',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Seed default station statuses
+INSERT INTO station_status (station, busy_level) VALUES
+  ('Doctor', 'mid'),
+  ('Optometry', 'mid'),
+  ('Refraction', 'mid'),
+  ('Glasses_Dispensed', 'mid'),
+  ('Ear_Therapy', 'mid'),
+  ('Surgery', 'mid')
+ON DUPLICATE KEY UPDATE station=station;
+
+-- Seed default surgeons
+INSERT INTO surgeons (name) VALUES
+  ('Dr Michael Newman'),
+  ('Dr Gary Schiller'),
+  ('Dr John Lee'),
+  ('Dr Audrey Muregesan'),
+  ('Dr Brett Drury'),
+  ('Dr Domit Azar'),
+  ('Dr Wu Zhouquan'),
+  ('Dr Zhong Zhiwei')
+ON DUPLICATE KEY UPDATE name=name;

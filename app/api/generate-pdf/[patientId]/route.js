@@ -1,4 +1,5 @@
 import { withDb } from '@/lib/mysql';
+import { getSession } from '@/lib/session';
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import QRCode from 'qrcode';
@@ -9,8 +10,8 @@ import { join } from 'path';
  * GET /api/generate-pdf/[patientId]?type=registration|surgery
  *
  * Generates a .docx file from the Cambodia Vision clinical templates.
- * Registration form includes a QR code (patient number, max 4 digits).
- * QR is injected directly into the docx as an inline image.
+ * Registration form: available to all authenticated users.
+ * Surgery form: restricted to admin and station_manager only.
  */
 export async function GET(request, { params }) {
   return withDb(async (pool) => {
@@ -23,6 +24,14 @@ export async function GET(request, { params }) {
         { error: 'Invalid or missing type parameter. Use ?type=registration or ?type=surgery' },
         { status: 400 }
       );
+    }
+
+    // Surgery form restricted to admin and station_manager
+    if (type === 'surgery') {
+      const session = await getSession();
+      if (session.role !== 'admin' && session.role !== 'station_manager') {
+        return Response.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     const [patients] = await pool.execute(

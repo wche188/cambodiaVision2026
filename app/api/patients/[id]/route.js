@@ -1,4 +1,5 @@
 import pool, { withDb } from '@/lib/mysql';
+import { getSession } from '@/lib/session';
 
 export async function GET(request, { params }) {
   return withDb(async (db) => {
@@ -27,12 +28,17 @@ export async function GET(request, { params }) {
       [id]
     );
 
+    const session = await getSession();
+    const responseData = { ...patient };
+
+    // Only admin and station_manager can see clinical PHI fields
+    if (session.role === 'admin' || session.role === 'station_manager') {
+      responseData.gp_examination = examRows.length > 0 ? examRows[0] : null;
+      responseData.surgery_decision = surgeryRows.length > 0 ? surgeryRows[0] : null;
+    }
+
     return Response.json({
-      data: {
-        ...patient,
-        gp_examination: examRows.length > 0 ? examRows[0] : null,
-        surgery_decision: surgeryRows.length > 0 ? surgeryRows[0] : null,
-      },
+      data: responseData,
     });
   });
 }
@@ -51,6 +57,11 @@ export async function PUT(request, { params }) {
       'age', 'has_tb', 'contact_phone', 'province', 'district', 'village',
       'commune', 'reason_for_visit', 'photo', 'registration_date', 'treatment'
     ];
+
+    // Validate age if provided
+    if (body.age !== undefined && body.age !== null && isNaN(Number(body.age))) {
+      return Response.json({ data: null, error: 'Invalid input' }, { status: 400 });
+    }
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
@@ -77,30 +88,8 @@ export async function PUT(request, { params }) {
     return Response.json({ data: rows[0], error: null });
   } catch (error) {
     console.error('Error updating patient:', error);
-    return Response.json({ data: null, error: error.message }, { status: 500 });
+    return Response.json({ data: null, error: 'Invalid input' }, { status: 400 });
   }
 }
 
-export async function DELETE(request, { params }) {
-  try {
-    const { id } = params;
-
-    // Check if patient exists
-    const [existing] = await pool.execute(
-      'SELECT * FROM patients WHERE id = ?',
-      [id]
-    );
-
-    if (existing.length === 0) {
-      return Response.json({ data: null, error: 'Patient not found' }, { status: 404 });
-    }
-
-    // Delete patient
-    await pool.execute('DELETE FROM patients WHERE id = ?', [id]);
-
-    return Response.json({ data: { message: 'Patient deleted successfully' }, error: null });
-  } catch (error) {
-    console.error('Error deleting patient:', error);
-    return Response.json({ data: null, error: error.message }, { status: 500 });
-  }
-}
+// DELETE endpoint removed — patient deletion should only happen via direct SQL backend access.
