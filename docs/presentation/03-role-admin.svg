@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <rect width="1000" height="700" fill="#f8fafc"/>
+  <rect x="0" y="0" width="1000" height="100" fill="#7c3aed"/>
+  <text x="40" y="48" fill="white" font-size="32" font-weight="700">👑 Admin</text>
+  <text x="40" y="78" fill="#ddd6fe" font-size="16">Full system access — runs setup, user management, backup, reports</text>
+  <text x="960" y="55" fill="white" font-size="13" text-anchor="end" font-weight="600">ROLE PROFILE</text>
+
+  <!-- Who / Where -->
+  <g transform="translate(40,135)">
+    <rect width="450" height="100" rx="12" fill="white" stroke="#7c3aed" stroke-width="2"/>
+    <text x="20" y="30" fill="#5b21b6" font-size="14" font-weight="700">Who &amp; where</text>
+    <text x="20" y="55" fill="#374151" font-size="13">• Mission IT lead or ops volunteer</text>
+    <text x="20" y="73" fill="#374151" font-size="13">• Sets up the system before the trip</text>
+    <text x="20" y="91" fill="#374151" font-size="13">• Typically 1 per clinic — usually the laptop</text>
+  </g>
+
+  <!-- Login -->
+  <g transform="translate(510,135)">
+    <rect width="450" height="100" rx="12" fill="white" stroke="#7c3aed" stroke-width="2"/>
+    <text x="20" y="30" fill="#5b21b6" font-size="14" font-weight="700">Login</text>
+    <text x="20" y="55" fill="#374151" font-size="13">• Username + password (bcrypt)</text>
+    <text x="20" y="73" fill="#374151" font-size="13">• Re-auth required for destructive ops</text>
+    <text x="20" y="91" fill="#374151" font-size="13">• 8-hour session, auto-logout</text>
+  </g>
+
+  <!-- What admins can do -->
+  <g transform="translate(40,260)">
+    <rect width="920" height="280" rx="12" fill="white" stroke="#7c3aed" stroke-width="2"/>
+    <text x="20" y="32" fill="#5b21b6" font-size="16" font-weight="700">What admins can do</text>
+
+    <g transform="translate(20,55)">
+      <rect width="280" height="55" rx="6" fill="#f3e8ff"/>
+      <text x="14" y="20" fill="#5b21b6" font-size="13" font-weight="700">User management</text>
+      <text x="14" y="38" fill="#374151" font-size="11">Create, edit, delete admins and</text>
+      <text x="14" y="52" fill="#374151" font-size="11">station managers (can't delete self)</text>
+    </g>
+
+    <g transform="translate(320,55)">
+      <rect width="280" height="55" rx="6" fill="#f3e8ff"/>
+      <text x="14" y="20" fill="#5b21b6" font-size="13" font-weight="700">Volunteer passphrase</text>
+      <text x="14" y="38" fill="#374151" font-size="11">Set/rotate the shared passphrase</text>
+      <text x="14" y="52" fill="#374151" font-size="11">all volunteers log in with</text>
+    </g>
+
+    <g transform="translate(620,55)">
+      <rect width="280" height="55" rx="6" fill="#f3e8ff"/>
+      <text x="14" y="20" fill="#5b21b6" font-size="13" font-weight="700">Database backup</text>
+      <text x="14" y="38" fill="#374151" font-size="11">Download SQL dump (passwords</text>
+      <text x="14" y="52" fill="#374151" font-size="11">redacted). Rate-limited.</text>
+    </g>
+
+    <g transform="translate(20,125)">
+      <rect width="280" height="55" rx="6" fill="#f3e8ff"/>
+      <text x="14" y="20" fill="#5b21b6" font-size="13" font-weight="700">Templates</text>
+      <text x="14" y="38" fill="#374151" font-size="11">Upload registration &amp; surgery</text>
+      <text x="14" y="52" fill="#374151" font-size="11">DOCX templates</text>
+    </g>
+
+    <g transform="translate(320,125)">
+      <rect width="280" height="55" rx="6" fill="#f3e8ff"/>
+      <text x="14" y="20" fill="#5b21b6" font-size="13" font-weight="700">Surgeons</text>
+      <text x="14" y="38" fill="#374151" font-size="11">Add/remove surgeons from the</text>
+      <text x="14" y="52" fill="#374151" font-size="11">dropdown in surgery form</text>
+    </g>
+
+    <g transform="translate(620,125)">
+      <rect width="280" height="55" rx="6" fill="#f3e8ff"/>
+      <text x="14" y="20" fill="#5b21b6" font-size="13" font-weight="700">Patient records</text>
+      <text x="14" y="38" fill="#374151" font-size="11">Read &amp; edit any patient, see full</text>
+      <text x="14" y="52" fill="#374151" font-size="11">PHI including gp_exam + surgery</text>
+    </g>
+
+    <g transform="translate(20,195)">
+      <rect width="880" height="55" rx="6" fill="#fef3c7" stroke="#fbbf24"/>
+      <text x="14" y="22" fill="#92400e" font-size="13" font-weight="700">Reports + dashboards</text>
+      <text x="14" y="40" fill="#374151" font-size="11">14-day registration trend, gender breakdown, station throughput, surgery counts. Used at end-of-day briefings.</text>
+    </g>
+  </g>
+
+  <!-- Typical workflow -->
+  <g transform="translate(40,565)">
+    <rect width="920" height="100" rx="12" fill="white" stroke="#7c3aed" stroke-width="2"/>
+    <text x="20" y="30" fill="#5b21b6" font-size="14" font-weight="700">Typical admin workflow (before clinic opens)</text>
+    <text x="20" y="55" fill="#374151" font-size="12">1. Power on server → PM2 starts the app automatically</text>
+    <text x="20" y="73" fill="#374151" font-size="12">2. Log in as admin → create one station_manager per physical station</text>
+    <text x="20" y="91" fill="#374151" font-size="12">3. Set volunteer passphrase → share with volunteer team</text>
+  </g>
+</svg>
