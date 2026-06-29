@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <rect width="1000" height="700" fill="#f8fafc"/>
+  <rect x="0" y="0" width="1000" height="100" fill="#059669"/>
+  <text x="40" y="48" fill="white" font-size="32" font-weight="700">🙋 Volunteer</text>
+  <text x="40" y="78" fill="#a7f3d0" font-size="16">Greets patients, registers them, prints forms — no clinical training needed</text>
+  <text x="960" y="55" fill="white" font-size="13" text-anchor="end" font-weight="600">ROLE PROFILE</text>
+
+  <g transform="translate(40,135)">
+    <rect width="450" height="100" rx="12" fill="white" stroke="#059669" stroke-width="2"/>
+    <text x="20" y="30" fill="#065f46" font-size="14" font-weight="700">Who &amp; where</text>
+    <text x="20" y="55" fill="#374151" font-size="13">• Non-clinical helpers — usually students,</text>
+    <text x="20" y="73" fill="#374151" font-size="13">  church groups, first-timers</text>
+    <text x="20" y="91" fill="#374151" font-size="13">• At the registration desk</text>
+  </g>
+
+  <g transform="translate(510,135)">
+    <rect width="450" height="100" rx="12" fill="white" stroke="#059669" stroke-width="2"/>
+    <text x="20" y="30" fill="#065f46" font-size="14" font-weight="700">Login</text>
+    <text x="20" y="55" fill="#374151" font-size="13">• Shared passphrase (one for everyone)</text>
+    <text x="20" y="73" fill="#374151" font-size="13">• Admin shares the passphrase verbally</text>
+    <text x="20" y="91" fill="#374151" font-size="13">• No individual usernames → no audit</text>
+  </g>
+
+  <g transform="translate(40,260)">
+    <rect width="920" height="280" rx="12" fill="white" stroke="#059669" stroke-width="2"/>
+    <text x="20" y="32" fill="#065f46" font-size="16" font-weight="700">What volunteers can do</text>
+
+    <g transform="translate(20,55)">
+      <rect width="280" height="55" rx="6" fill="#d1fae5"/>
+      <text x="14" y="20" fill="#065f46" font-size="13" font-weight="700">Register new patients</text>
+      <text x="14" y="38" fill="#374151" font-size="11">15-field form: name, age, gender,</text>
+      <text x="14" y="52" fill="#374151" font-size="11">contact, province, photo</text>
+    </g>
+
+    <g transform="translate(320,55)">
+      <rect width="280" height="55" rx="6" fill="#d1fae5"/>
+      <text x="14" y="20" fill="#065f46" font-size="13" font-weight="700">Capture photo</text>
+      <text x="14" y="38" fill="#374151" font-size="11">Camera in browser, auto-compresses</text>
+      <text x="14" y="52" fill="#374151" font-size="11">to ~100 KB for storage</text>
+    </g>
+
+    <g transform="translate(620,55)">
+      <rect width="280" height="55" rx="6" fill="#d1fae5"/>
+      <text x="14" y="20" fill="#065f46" font-size="13" font-weight="700">Print registration form</text>
+      <text x="14" y="38" fill="#374151" font-size="11">PDF for the patient to carry</text>
+      <text x="14" y="52" fill="#374151" font-size="11">through the stations</text>
+    </g>
+
+    <g transform="translate(20,125)">
+      <rect width="280" height="55" rx="6" fill="#d1fae5"/>
+      <text x="14" y="20" fill="#065f46" font-size="13" font-weight="700">View dashboard</text>
+      <text x="14" y="38" fill="#374151" font-size="11">See overall clinic status, station</text>
+      <text x="14" y="52" fill="#374151" font-size="11">queue levels</text>
+    </g>
+
+    <g transform="translate(320,125)">
+      <rect width="280" height="55" rx="6" fill="#d1fae5"/>
+      <text x="14" y="20" fill="#065f46" font-size="13" font-weight="700">Look up any patient</text>
+      <text x="14" y="38" fill="#374151" font-size="11">Search by name, #, or status</text>
+      <text x="14" y="52" fill="#374151" font-size="11">to answer questions</text>
+    </g>
+
+    <g transform="translate(620,125)">
+      <rect width="280" height="55" rx="6" fill="#d1fae5"/>
+      <text x="14" y="20" fill="#065f46" font-size="13" font-weight="700">Bilingual UI</text>
+      <text x="14" y="38" fill="#374151" font-size="11">Every label shows English + Khmer</text>
+      <text x="14" y="52" fill="#374151" font-size="11">side-by-side</text>
+    </g>
+
+    <g transform="translate(20,195)">
+      <rect width="880" height="55" rx="6" fill="#fef2f2" stroke="#fca5a5"/>
+      <text x="14" y="22" fill="#991b1b" font-size="13" font-weight="700">Cannot do</text>
+      <text x="14" y="40" fill="#374151" font-size="11">No clinical decisions, no surgery records, no GP exams, no user management, no backup, no admin reports.</text>
+    </g>
+  </g>
+
+  <g transform="translate(40,565)">
+    <rect width="920" height="100" rx="12" fill="white" stroke="#059669" stroke-width="2"/>
+    <text x="20" y="30" fill="#065f46" font-size="14" font-weight="700">Typical volunteer workflow (at registration desk)</text>
+    <text x="20" y="55" fill="#374151" font-size="12">1. Greet patient → open registration form on tablet</text>
+    <text x="20" y="73" fill="#374151" font-size="12">2. Fill in fields with patient → snap photo</text>
+    <text x="20" y="91" fill="#374151" font-size="12">3. Save → print form PDF → direct patient to next station</text>
+  </g>
+</svg>
