@@ -2,12 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw, Users, Stethoscope, Eye, Ear, Scissors, Glasses, Download } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Users, Stethoscope, Eye, Ear, Scissors, Glasses, Download, Shield } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 export default function DataReport() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Detect admin role for nav button
+  useEffect(() => {
+    fetch('/api/auth/session')
+      .then(r => r.ok ? r.json() : null)
+      .then(s => { if (s && s.role === 'admin') setIsAdmin(true); })
+      .catch(() => {});
+  }, []);
 
   const fetchReport = async () => {
     setLoading(true);
@@ -89,6 +98,15 @@ export default function DataReport() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center gap-2 px-4 py-2 min-h-[44px] bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Shield className="w-4 h-4" />
+                Admin
+              </Link>
+            )}
             <a
               href="/api/admin/backup"
               className="inline-flex items-center gap-2 px-4 py-2 min-h-[44px] bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-900 transition-colors"

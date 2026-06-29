@@ -9,6 +9,7 @@ import {
   FileText,
   RefreshCw,
   Loader2,
+  Shield,
 } from 'lucide-react';
 import DashboardSummary from './components/DashboardSummary';
 import PatientCard from './components/PatientCard';
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [counts, setCounts] = useState({});
   const [page, setPage] = useState(1);
+  const [session, setSession] = useState(null);
   const PAGE_SIZE = 15;
 
   const fetchPatients = useCallback(async () => {
@@ -100,12 +102,23 @@ export default function Dashboard() {
     } catch {}
   }, []);
 
+  const fetchSession = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/session');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.role) setSession(data);
+      }
+    } catch {}
+  }, []);
+
   // Initial fetch
   useEffect(() => {
+    fetchSession();
     fetchPatients();
     fetchCounts();
     fetchStationStatuses();
-  }, [fetchPatients, fetchCounts, fetchStationStatuses]);
+  }, [fetchSession, fetchPatients, fetchCounts, fetchStationStatuses]);
 
   // 30-second polling
   useEffect(() => {
@@ -167,6 +180,18 @@ export default function Dashboard() {
               <span className="hidden sm:inline">Report</span>
               <span className="sm:hidden">Report</span>
             </Link>
+
+            {session?.role === 'admin' && (
+              <Link
+                href="/admin"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 shadow-sm transition-all flex-1 sm:flex-initial"
+                data-testid="admin-link"
+              >
+                <Shield className="w-4 h-4" />
+                <span className="hidden sm:inline">Admin</span>
+                <span className="sm:hidden">Admin</span>
+              </Link>
+            )}
 
             <button
               onClick={handleLogout}
