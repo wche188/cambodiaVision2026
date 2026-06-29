@@ -12,8 +12,8 @@ import { withDb } from '@/lib/mysql';
 export async function GET(request) {
   return withDb(async (pool) => {
     const { searchParams } = new URL(request.url);
-    const patientNumber = searchParams.get('patient_number');
-    const statusParam = searchParams.get('status');
+    const patientNumber = searchParams.get('patient_number')?.trim() || null;
+    const statusParam = searchParams.get('status')?.trim() || null;
 
     let query = 'SELECT * FROM patients';
     const conditions = [];
@@ -41,7 +41,15 @@ export async function GET(request) {
 
     const [rows] = await pool.execute(query, params);
 
-    return Response.json({ data: rows, error: null });
+    return Response.json(
+      { data: rows, error: null },
+      {
+        headers: {
+          // Patient data is dynamic, role-gated — never cache it.
+          'Cache-Control': 'private, no-store',
+        },
+      }
+    );
   });
 }
 

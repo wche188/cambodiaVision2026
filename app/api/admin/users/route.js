@@ -18,16 +18,29 @@ export async function GET() {
 /**
  * POST /api/admin/users — Create a new admin/station_manager user
  * Requires current admin password confirmation to prevent session-hijack escalation.
- * Body: { username, password, full_name, confirm_password }
- * confirm_password = the CURRENT admin's own password (re-auth)
+ * Body: {
+ *   username:           string, required
+ *   password:           string, required
+ *   full_name:          string, optional
+ *   role:               'admin' | 'station_manager', optional (defaults to 'admin')
+ *   assigned_station:   string, optional (required when role='station_manager')
+ *   confirm_password:   string, required — current admin's own password (re-auth)
+ * }
  */
 export async function POST(request) {
   return withDb(async (pool) => {
     const session = await getSession();
     const body = await request.json();
-    const { username, password, full_name, confirm_password } = body;
+    const {
+      username,
+      password,
+      full_name,
+      role,
+      assigned_station,
+      confirm_password,
+    } = body;
 
-    // Require current admin password confirmation
+    // Require current admin password confirmation (in body, NOT header)
     if (!confirm_password) {
       return NextResponse.json(
         { error: 'Your current password is required to create a user' },
@@ -58,6 +71,25 @@ export async function POST(request) {
       );
     }
 
+    // Validate role (allow null/undefined for backward compat; default 'admin')
+    const finalRole = role || 'admin';
+    if (!['admin', 'station_manager'].includes(finalRole)) {
+      return NextResponse.json(
+        { error: 'role must be "admin" or "station_manager"' },
+        { status: 400 }
+      );
+    }
+
+    // Validate assigned_station when role=station_manager
+    const finalStation =
+      finalRole === 'station_manager' ? assigned_station || null : null;
+    if (finalRole === 'station_manager' && !finalStation) {
+      return NextResponse.json(
+        { error: 'assigned_station is required when role is "station_manager"' },
+        { status: 400 }
+      );
+    }
+
     // Check for duplicate username
     const [existing] = await pool.query(
       'SELECT id FROM admin_users WHERE username = ?',
@@ -75,8 +107,8 @@ export async function POST(request) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const [result] = await pool.query(
-      'INSERT INTO admin_users (username, password_hash, full_name) VALUES (?, ?, ?)',
-      [username.trim(), passwordHash, full_name ? full_name.trim() : null]
+      'INSERT INTO admin_users (username, password_hash, full_name, role, assigned_station) VALUES (?, ?, ?, ?, ?)',
+      [username.trim(), passwordHash, full_name ? full_name.trim() : null, finalRole, finalStation]
     );
 
     return NextResponse.json(
@@ -85,6 +117,8 @@ export async function POST(request) {
           id: result.insertId,
           username: username.trim(),
           full_name: full_name ? full_name.trim() : null,
+          role: finalRole,
+          assigned_station: finalStation,
         },
       },
       { status: 201 }
