@@ -207,24 +207,31 @@ scp ubuntu@150.230.8.247:/var/backups/cambodia-vision/cambodia-vision-*.sql.gz .
 
 ---
 
-## 4. Adding a New Admin User
+## 4. User Management — DB only
 
-Two paths: the admin UI (preferred) or the MySQL CLI (fallback).
+The admin panel does **not** expose user creation or deletion. The admin UI
+can change passwords for existing users only. New users must be added via
+direct database access. This is intentional — it prevents a compromised
+admin session from creating backdoor accounts, and forces user lifecycle
+to go through documented IT/DBA workflows.
 
-### 4.1 Via the admin UI
+### 4.1 Changing a user's password (admin UI)
 
-`/admin` → Users → Create. The UI handles bcrypt hashing and inserts
-the row.
+`/admin` → Users row → **Change password** button. Required fields:
 
-### 4.2 Via MySQL CLI
+- New password (≥ 8 characters)
+- Confirm new password
+- Your own admin password (re-authentication — blocks a hijacked session)
+
+### 4.2 Adding a new admin user (DB only)
 
 ```bash
-cd /opt/cambodia-vision
+cd /home/ubuntu/cambodia-vision
 
-# Generate a bcrypt hash for the new password (cost 12)
+# 1. Generate a bcrypt hash for the new password (cost 10 — same as login route)
 node -e '
   const bcrypt = require("bcryptjs");
-  console.log(bcrypt.hashSync(process.argv[1], 12));
+  console.log(bcrypt.hashSync(process.argv[1], 10));
 ' 'NEW_ADMIN_PASSWORD'
 ```
 
@@ -232,17 +239,52 @@ Copy the printed hash, then:
 
 ```bash
 mysql -h 127.0.0.1 -u cambodiav -p cambodia_vision <<SQL
-INSERT INTO admin_users (username, password_hash, full_name, role)
-VALUES ('newadmin', 'PASTE_BCRYPT_HASH_HERE', 'Second Admin', 'admin');
+INSERT INTO admin_users (username, password_hash, full_name, role, assigned_station)
+VALUES ('newadmin', 'PASTE_BCRYPT_HASH_HERE', 'Second Admin', 'admin', NULL);
 SQL
 ```
 
-For station-manager accounts, set `role='station_manager'` and
+**For station_manager accounts**, set `role='station_manager'` and
 `assigned_station` to one of:
 
-```
+```text
 Doctor | Optometry | Refraction | Glasses_Dispensed | Ear_Therapy | Surgery
 ```
+
+```sql
+INSERT INTO admin_users (username, password_hash, full_name, role, assigned_station)
+VALUES ('sm_doctor', 'PASTE_BCRYPT_HASH_HERE', 'Doctor Station Manager',
+        'station_manager', 'Doctor');
+```
+
+### 4.3 Removing a user (DB only, rare)
+
+> Avoid in production. Prefer rotating the user's password and disabling
+> their access instead of a hard DELETE so the audit trail (status_history,
+> patient author attribution) stays intact.
+
+```bash
+mysql -h 127.0.0.1 -u cambodiav -p cambodia_vision -e \
+  "DELETE FROM admin_users WHERE username = 'username_to_remove';"
+```
+
+Last-admin and self-deletion guards exist in the API but if you delete via
+SQL, take care not to leave the system without an admin.
+
+### 4.4 Bulk seeding (test setup)
+
+Use `scripts/seed-accounts.js` to create the full initial roster
+(1 admin + 6 station_managers + volunteer passphrase) in one shot. Idempotent.
+
+```bash
+cd /home/ubuntu/cambodia-vision
+set -a && source .env.production && set +a
+node scripts/seed-accounts.js
+```
+
+The script prints a table of all created accounts when done. Delete
+`scripts/seed-accounts.js` from the server after running for the first
+time — it should not remain on production.
 
 ---
 
