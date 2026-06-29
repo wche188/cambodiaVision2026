@@ -49,3 +49,10 @@ certs/
 smoke-100.js
 .xiaxia-suggestions.md
 /tmp/
+
+# Office / LibreOffice lock files (created automatically when a file is open)
+~$*.pptx
+~$*.ppt
+~$*.docx
+~$*.xlsx
+.~lock.*
