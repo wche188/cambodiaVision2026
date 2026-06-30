@@ -312,6 +312,7 @@ The script will:
 7. Append a timestamped entry to `scripts/.admin-reset.log` (mode 600)
 
 **After running:**
+
 ```bash
 # Verify the new password works
 curl -sk -X POST -H "Content-Type: application/json" \
