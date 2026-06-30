@@ -286,6 +286,49 @@ The script prints a table of all created accounts when done. Delete
 `scripts/seed-accounts.js` from the server after running for the first
 time — it should not remain on production.
 
+### 4.5 Last-resort: reset an admin password from the server
+
+Use this only when the admin password has been lost or compromised and
+the admin UI cannot be used (the UI's password-change flow requires the
+current password).
+
+```bash
+ssh ubuntu@150.230.8.247
+cd /home/ubuntu/cambodia-vision
+set -a && source .env.production && set +a
+
+# Reset the default admin user. Pass another username as $1 to reset a different user.
+node scripts/reset-admin-password.js
+```
+
+The script will:
+
+1. Print a summary of the target DB connection
+2. Ask you to type `YES` to confirm
+3. Prompt for the new password (hidden with `*` in a TTY; visible when piped)
+4. Prompt to confirm the new password
+5. `bcrypt(10)`-hash it and `UPDATE admin_users.password_hash`
+6. Print `✓ Password reset for "admin" (id=N) rows affected: 1`
+7. Append a timestamped entry to `scripts/.admin-reset.log` (mode 600)
+
+**After running:**
+```bash
+# Verify the new password works
+curl -sk -X POST -H "Content-Type: application/json" \
+  -d '{"type":"admin","username":"admin","password":"NEW_PASSWORD"}' \
+  https://localhost:3000/api/auth/login
+```
+
+**Audit:** every reset appends a line to `scripts/.admin-reset.log`. Move
+that file (or pipe it) to your central log aggregation so you have a
+permanent record of who reset what, when.
+
+**Safety:** the script refuses to run without explicit `YES` confirmation,
+checks that the target user exists in `admin_users`, warns if the target
+user is not an admin, and validates that the new password is ≥ 8
+characters and matches the confirmation. It has **no rate limit** — if
+you're locked out, run it as many times as needed.
+
 ---
 
 ## 5. Rotating `SESSION_SECRET`
