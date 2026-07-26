@@ -16,8 +16,26 @@ export async function GET(request, { params }) {
 
     const patient = rows[0];
 
+    // Fetch GP examination data for this patient
+    const [examRows] = await db.execute(
+      'SELECT * FROM gp_examinations WHERE patient_id = ?',
+      [id]
+    );
+
+    // Fetch surgery decision data for this patient
+    const [surgeryRows] = await db.execute(
+      'SELECT * FROM surgery_decisions WHERE patient_id = ?',
+      [id]
+    );
+
     const session = await getSession();
     const responseData = { ...patient };
+
+    // Only admin and station_manager can see clinical PHI fields
+    if (session.role === 'admin' || session.role === 'station_manager') {
+      responseData.gp_examination = examRows.length > 0 ? examRows[0] : null;
+      responseData.surgery_decision = surgeryRows.length > 0 ? surgeryRows[0] : null;
+    }
 
     return Response.json({
       data: responseData,
@@ -30,6 +48,7 @@ export async function PUT(request, { params }) {
     const { id } = params;
     const body = await request.json();
 
+    // Build dynamic update query
     const fields = [];
     const values = [];
 
@@ -39,6 +58,7 @@ export async function PUT(request, { params }) {
       'commune', 'reason_for_visit', 'photo', 'registration_date', 'treatment'
     ];
 
+    // Validate age if provided
     if (body.age !== undefined && body.age !== null && isNaN(Number(body.age))) {
       return Response.json({ data: null, error: 'Invalid input' }, { status: 400 });
     }
@@ -56,13 +76,15 @@ export async function PUT(request, { params }) {
 
     values.push(id);
 
-    const query = `UPDATE patients SET ${fields.join(, )} WHERE id = ?`;
+    const query = `UPDATE patients SET ${fields.join(', ')} WHERE id = ?`;
     const [result] = await pool.execute(query, values);
 
+    // If no row was affected, the patient doesn't exist
     if (result.affectedRows === 0) {
       return Response.json({ data: null, error: 'Patient not found' }, { status: 404 });
     }
 
+    // Fetch updated patient
     const [rows] = await pool.execute(
       'SELECT * FROM patients WHERE id = ?',
       [id]
