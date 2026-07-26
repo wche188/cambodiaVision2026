@@ -1,4 +1,5 @@
 import pool, { withDb } from '@/lib/mysql';
+import { getSession } from '@/lib/session';
 
 export async function GET(request, { params }) {
   return withDb(async (db) => {
@@ -15,24 +16,11 @@ export async function GET(request, { params }) {
 
     const patient = rows[0];
 
-    // Fetch GP examination data for this patient
-    const [examRows] = await db.execute(
-      'SELECT * FROM gp_examinations WHERE patient_id = ?',
-      [id]
-    );
-
-    // Fetch surgery decision data for this patient
-    const [surgeryRows] = await db.execute(
-      'SELECT * FROM surgery_decisions WHERE patient_id = ?',
-      [id]
-    );
+    const session = await getSession();
+    const responseData = { ...patient };
 
     return Response.json({
-      data: {
-        ...patient,
-        gp_examination: examRows.length > 0 ? examRows[0] : null,
-        surgery_decision: surgeryRows.length > 0 ? surgeryRows[0] : null,
-      },
+      data: responseData,
     });
   });
 }
@@ -42,7 +30,6 @@ export async function PUT(request, { params }) {
     const { id } = params;
     const body = await request.json();
 
-    // Build dynamic update query
     const fields = [];
     const values = [];
 
@@ -51,6 +38,10 @@ export async function PUT(request, { params }) {
       'age', 'has_tb', 'contact_phone', 'province', 'district', 'village',
       'commune', 'reason_for_visit', 'photo', 'registration_date', 'treatment'
     ];
+
+    if (body.age !== undefined && body.age !== null && isNaN(Number(body.age))) {
+      return Response.json({ data: null, error: 'Invalid input' }, { status: 400 });
+    }
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
@@ -65,10 +56,13 @@ export async function PUT(request, { params }) {
 
     values.push(id);
 
-    const query = `UPDATE patients SET ${fields.join(', ')} WHERE id = ?`;
-    await pool.execute(query, values);
+    const query = `UPDATE patients SET ${fields.join(, )} WHERE id = ?`;
+    const [result] = await pool.execute(query, values);
 
-    // Fetch updated patient
+    if (result.affectedRows === 0) {
+      return Response.json({ data: null, error: 'Patient not found' }, { status: 404 });
+    }
+
     const [rows] = await pool.execute(
       'SELECT * FROM patients WHERE id = ?',
       [id]
@@ -77,30 +71,8 @@ export async function PUT(request, { params }) {
     return Response.json({ data: rows[0], error: null });
   } catch (error) {
     console.error('Error updating patient:', error);
-    return Response.json({ data: null, error: error.message }, { status: 500 });
+    return Response.json({ data: null, error: 'Invalid input' }, { status: 400 });
   }
 }
 
-export async function DELETE(request, { params }) {
-  try {
-    const { id } = params;
-
-    // Check if patient exists
-    const [existing] = await pool.execute(
-      'SELECT * FROM patients WHERE id = ?',
-      [id]
-    );
-
-    if (existing.length === 0) {
-      return Response.json({ data: null, error: 'Patient not found' }, { status: 404 });
-    }
-
-    // Delete patient
-    await pool.execute('DELETE FROM patients WHERE id = ?', [id]);
-
-    return Response.json({ data: { message: 'Patient deleted successfully' }, error: null });
-  } catch (error) {
-    console.error('Error deleting patient:', error);
-    return Response.json({ data: null, error: error.message }, { status: 500 });
-  }
-}
+// DELETE endpoint removed — patient deletion should only happen via direct SQL backend access.

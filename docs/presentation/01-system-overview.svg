@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <!-- Background -->
+  <rect width="1200" height="700" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1200" height="90" fill="#0f766e"/>
+  <text x="60" y="45" fill="white" font-size="28" font-weight="700">Cambodia Vision 2026</text>
+  <text x="60" y="72" fill="#a7f3d0" font-size="16">Patient management for medical mission trips</text>
+  <text x="1140" y="55" fill="white" font-size="14" text-anchor="end" font-weight="500">SYSTEM OVERVIEW</text>
+
+  <!-- Left side: Users -->
+  <text x="60" y="135" fill="#0f766e" font-size="18" font-weight="700">👥 Who uses it</text>
+
+  <!-- Volunteers -->
+  <g transform="translate(60,160)">
+    <rect width="280" height="100" rx="12" fill="white" stroke="#10b981" stroke-width="2"/>
+    <text x="20" y="32" fill="#065f46" font-size="16" font-weight="700">Volunteers</text>
+    <text x="20" y="55" fill="#374151" font-size="13">• Register new patients</text>
+    <text x="20" y="73" fill="#374151" font-size="13">• View dashboard</text>
+    <text x="20" y="91" fill="#374151" font-size="13">• Shared passphrase login</text>
+  </g>
+
+  <!-- Station managers -->
+  <g transform="translate(60,275)">
+    <rect width="280" height="100" rx="12" fill="white" stroke="#3b82f6" stroke-width="2"/>
+    <text x="20" y="32" fill="#1e3a8a" font-size="16" font-weight="700">Station Managers</text>
+    <text x="20" y="55" fill="#374151" font-size="13">• Scan / lookup patients</text>
+    <text x="20" y="73" fill="#374151" font-size="13">• Record exams, surgery</text>
+    <text x="20" y="91" fill="#374151" font-size="13">• 1 per physical station</text>
+  </g>
+
+  <!-- Admins -->
+  <g transform="translate(60,390)">
+    <rect width="280" height="100" rx="12" fill="white" stroke="#8b5cf6" stroke-width="2"/>
+    <text x="20" y="32" fill="#4c1d95" font-size="16" font-weight="700">Admins</text>
+    <text x="20" y="55" fill="#374151" font-size="13">• Manage users + stations</text>
+    <text x="20" y="73" fill="#374151" font-size="13">• Backup, reports, PDF</text>
+    <text x="20" y="91" fill="#374151" font-size="13">• Full system access</text>
+  </g>
+
+  <!-- Devices -->
+  <g transform="translate(60,510)">
+    <rect width="280" height="130" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="20" y="32" fill="#065f46" font-size="14" font-weight="700">Devices</text>
+    <text x="20" y="55" fill="#374151" font-size="13">📱 Phones</text>
+    <text x="20" y="73" fill="#374151" font-size="13">📱 Tablets</text>
+    <text x="20" y="91" fill="#374151" font-size="13">💻 Laptops</text>
+    <text x="20" y="113" fill="#374151" font-size="11" font-style="italic">Any modern browser, no install</text>
+  </g>
+
+  <!-- Center: HTTPS Server -->
+  <g transform="translate(420,220)">
+    <rect width="280" height="220" rx="16" fill="#0f766e" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.1))"/>
+    <text x="140" y="50" fill="white" font-size="22" font-weight="700" text-anchor="middle">HTTPS Server</text>
+    <text x="140" y="78" fill="#a7f3d0" font-size="13" text-anchor="middle">Next.js + Custom TLS</text>
+
+    <!-- Features -->
+    <circle cx="60" cy="120" r="5" fill="#a7f3d0"/>
+    <text x="78" y="124" fill="white" font-size="13">8-hour auto-logout</text>
+    <circle cx="60" cy="148" r="5" fill="#a7f3d0"/>
+    <text x="78" y="152" fill="white" font-size="13">Bcrypt password hashing</text>
+    <circle cx="60" cy="176" r="5" fill="#a7f3d0"/>
+    <text x="78" y="180" fill="white" font-size="13">Rate-limit protected</text>
+    <circle cx="60" cy="204" r="5" fill="#a7f3d0"/>
+    <text x="78" y="208" fill="white" font-size="13">HSTS, CSP, secure cookies</text>
+  </g>
+
+  <!-- Arrows from users to server -->
+  <line x1="340" y1="210" x2="420" y2="290" stroke="#10b981" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <line x1="340" y1="325" x2="420" y2="330" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrow-blue)"/>
+  <line x1="340" y1="440" x2="420" y2="370" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow-purple)"/>
+
+  <!-- Right side: MySQL -->
+  <g transform="translate(800,220)">
+    <rect width="280" height="220" rx="16" fill="white" stroke="#0f766e" stroke-width="3" filter="drop-shadow(0 4px 6px rgba(0,0,0,0.1))"/>
+    <text x="140" y="50" fill="#0f766e" font-size="22" font-weight="700" text-anchor="middle">MySQL 8 Database</text>
+    <text x="140" y="78" fill="#6b7280" font-size="13" text-anchor="middle">All patient records (PHI)</text>
+
+    <!-- Tables -->
+    <g transform="translate(20,100)">
+      <rect width="110" height="22" rx="4" fill="#dbeafe"/>
+      <text x="55" y="15" fill="#1e3a8a" font-size="11" text-anchor="middle">patients</text>
+      <rect x="120" width="110" height="22" rx="4" fill="#dbeafe"/>
+      <text x="175" y="15" fill="#1e3a8a" font-size="11" text-anchor="middle">gp_examinations</text>
+      <rect y="30" width="110" height="22" rx="4" fill="#dbeafe"/>
+      <text x="55" y="45" fill="#1e3a8a" font-size="11" text-anchor="middle">surgery_records</text>
+      <rect x="120" y="30" width="110" height="22" rx="4" fill="#dbeafe"/>
+      <text x="175" y="45" fill="#1e3a8a" font-size="11" text-anchor="middle">status_history</text>
+      <rect y="60" width="110" height="22" rx="4" fill="#dbeafe"/>
+      <text x="55" y="75" fill="#1e3a8a" font-size="11" text-anchor="middle">admin_users</text>
+      <rect x="120" y="60" width="110" height="22" rx="4" fill="#dbeafe"/>
+      <text x="175" y="75" fill="#1e3a8a" font-size="11" text-anchor="middle">surgeons</text>
+      <rect y="90" width="230" height="22" rx="4" fill="#f3e8ff"/>
+      <text x="115" y="105" fill="#5b21b6" font-size="11" text-anchor="middle">system_config (passphrases)</text>
+    </g>
+  </g>
+
+  <!-- Arrow from server to DB -->
+  <line x1="700" y1="330" x2="800" y2="330" stroke="#0f766e" stroke-width="3" marker-end="url(#arrow-teal)"/>
+  <text x="750" y="320" fill="#0f766e" font-size="11" text-anchor="middle" font-weight="600">parameterized queries</text>
+
+  <!-- Bottom row: deployment properties -->
+  <g transform="translate(420,490)">
+    <rect width="660" height="160" rx="12" fill="white" stroke="#d1d5db" stroke-width="1"/>
+    <text x="20" y="32" fill="#0f766e" font-size="16" font-weight="700">🏥 Field deployment</text>
+
+    <g transform="translate(20,55)">
+      <rect width="200" height="40" rx="6" fill="#f0fdfa"/>
+      <text x="100" y="25" fill="#0f766e" font-size="12" text-anchor="middle" font-weight="600">LAN-only</text>
+      <text x="100" y="42" fill="#374151" font-size="11" text-anchor="middle">No internet required</text>
+    </g>
+    <g transform="translate(230,55)">
+      <rect width="200" height="40" rx="6" fill="#f0fdfa"/>
+      <text x="100" y="25" fill="#0f766e" font-size="12" text-anchor="middle" font-weight="600">Self-signed cert</text>
+      <text x="100" y="42" fill="#374151" font-size="11" text-anchor="middle">Auto-LAN-IP SAN</text>
+    </g>
+    <g transform="translate(440,55)">
+      <rect width="200" height="40" rx="6" fill="#f0fdfa"/>
+      <text x="100" y="25" fill="#0f766e" font-size="12" text-anchor="middle" font-weight="600">PM2 supervised</text>
+      <text x="100" y="42" fill="#374151" font-size="11" text-anchor="middle">Auto-restart on crash</text>
+    </g>
+    <g transform="translate(20,105)">
+      <rect width="200" height="40" rx="6" fill="#fef3c7"/>
+      <text x="100" y="25" fill="#92400e" font-size="12" text-anchor="middle" font-weight="600">Bilingual (EN/KH)</text>
+      <text x="100" y="42" fill="#374151" font-size="11" text-anchor="middle">Khmer labels throughout</text>
+    </g>
+    <g transform="translate(230,105)">
+      <rect width="200" height="40" rx="6" fill="#fef3c7"/>
+      <text x="100" y="25" fill="#92400e" font-size="12" text-anchor="middle" font-weight="600">Photo capture</text>
+      <text x="100" y="42" fill="#374151" font-size="11" text-anchor="middle">Camera in browser</text>
+    </g>
+    <g transform="translate(440,105)">
+      <rect width="200" height="40" rx="6" fill="#fef3c7"/>
+      <text x="100" y="25" fill="#92400e" font-size="12" text-anchor="middle" font-weight="600">PDF / DOCX export</text>
+      <text x="100" y="42" fill="#374151" font-size="11" text-anchor="middle">Registration, surgery forms</text>
+    </g>
+  </g>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#10b981"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#8b5cf6"/>
+    </marker>
+    <marker id="arrow-teal" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#0f766e"/>
+    </marker>
+  </defs>
+
+  <!-- Footer -->
+  <text x="60" y="685" fill="#6b7280" font-size="11">Cambodia Vision 2026 — Patient Journey System — Architecture</text>
+</svg>

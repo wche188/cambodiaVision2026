@@ -48,14 +48,30 @@ node server.mjs
 
 ## Production Deployment
 
+Requires: **Node.js 20+**, **MySQL 8.0**, **PM2** (process manager)
+
 ```bash
+# Install PM2 globally
+npm install -g pm2
+
 # On any machine with Node.js 20+ and MySQL 8.0:
 git clone <your-repo-url>
 cd cambodia-vision
 npm install
 mysql -u root cambodia_vision < db/init.sql
-cp .env.example .env.local  # edit with real credentials
+cp .env.example .env.local  # edit with real credentials — CHANGE ALL PLACEHOLDER VALUES
+
+# Start with PM2 (auto-restart, memory limits)
+npm run start:prod
+
+# Or run directly:
 node server.mjs
+
+# PM2 commands
+npm run stop       # stop the app
+npm run restart    # restart the app
+pm2 logs cambodia-vision  # view logs
+pm2 monit          # monitoring dashboard
 ```
 
 ## HTTPS (Required for Camera on LAN)
