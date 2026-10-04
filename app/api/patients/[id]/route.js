@@ -22,6 +22,7 @@ export async function GET(request, { params }) {
       surgeryDecisionRows,
       surgeryRecordRows,
       attachmentCountRows,
+      patientNotesRows,
     ] = await Promise.all([
       db.execute('SELECT * FROM gp_examinations WHERE patient_id = ? ORDER BY examined_at DESC LIMIT 1', [id]),
       db.execute('SELECT * FROM surgery_decisions WHERE patient_id = ? ORDER BY decided_at DESC LIMIT 1', [id]),
@@ -39,6 +40,10 @@ export async function GET(request, { params }) {
          FROM patient_attachments
          WHERE patient_id = ?
          GROUP BY category`,
+        [id]
+      ),
+      db.execute(
+        'SELECT id, body, created_by, created_at, updated_at, updated_by FROM patient_notes WHERE patient_id = ? ORDER BY created_at DESC',
         [id]
       ),
     ]);
@@ -67,6 +72,7 @@ export async function GET(request, { params }) {
       gp_examination: gpExaminationRows[0][0] || null,
       surgery_decision: surgeryDecisionRows[0][0] || null,
       surgery_records: surgeryRecords,
+      notes: patientNotesRows[0] || [],
       attachments_count: (attachmentCountRows[0] || []).reduce(
         (acc, r) => ({ ...acc, [r.category]: Number(r.cnt) }),
         { document: 0, note: 0, other: 0 }

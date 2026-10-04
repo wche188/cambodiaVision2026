@@ -54,6 +54,8 @@ export default function PatientDetailPage() {
   const canUploadAttachment = isAdmin || isStationManager;
   const canEditAttachmentNote = isAdmin;
   const canDeleteAttachment = isAdmin;
+  const canAddNote = isAdmin || isStationManager;
+  const canDeleteNote = isAdmin;
 
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -277,6 +279,16 @@ export default function PatientDetailPage() {
         {patient.surgery_records && patient.surgery_records.length > 0 && (
           <SurgeryInformation surgeries={patient.surgery_records} />
         )}
+
+        {/* Notes — standalone text notes (admin or station_manager can add) */}
+        <NotesSection
+          notes={patient.notes || []}
+          canAdd={canAddNote}
+          canDelete={canDeleteNote}
+          currentUsername={session?.username || ''}
+          onChanged={() => fetchPatient()}
+          patientId={id}
+        />
 
         {/* Attachments — uploaded files for this patient (always shown) */}
         <AttachmentsSection
@@ -924,6 +936,236 @@ const JOURNEY_STATIONS = [
   { key: 'Ear_Therapy', label: 'Ear Therapy', km: 'ព្យាបាលត្រចៀក', icon: '👂' },
   { key: 'Surgery', label: 'Surgery', km: 'វះកាត់', icon: '🔪' },
 ];
+
+// ============================================================
+// Standalone patient notes (text only, no attachments)
+// ============================================================
+function NotesSection({ notes, canAdd, canDelete, currentUsername, onChanged, patientId }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [newBody, setNewBody] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editBody, setEditBody] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleAdd = async () => {
+    if (!newBody.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/patients/${patientId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: newBody.trim() }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Add failed (HTTP ${res.status})`);
+      }
+      setNewBody('');
+      setShowAdd(false);
+      onChanged();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startEdit = (n) => {
+    setEditingId(n.id);
+    setEditBody(n.body);
+  };
+
+  const saveEdit = async (n) => {
+    if (!editBody.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/patients/${patientId}/notes/${n.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body: editBody.trim() }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Save failed (HTTP ${res.status})`);
+      }
+      setEditingId(null);
+      setEditBody('');
+      onChanged();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async (n) => {
+    if (!confirm('Delete this note? This cannot be undone.')) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/patients/${patientId}/notes/${n.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Delete failed (HTTP ${res.status})`);
+      }
+      onChanged();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section
+      data-testid="notes-section"
+      className="bg-purple-50 rounded-xl border border-purple-200 p-6"
+    >
+      <h2 className="text-lg font-semibold text-purple-900 mb-4 flex items-center gap-2">
+        <FileText className="w-5 h-5" />
+        Notes
+        <span className="text-sm font-normal text-purple-700">កំណត់ត្រា</span>
+        <span className="ml-auto text-xs font-normal text-purple-600">
+          {notes.length} {notes.length === 1 ? 'note' : 'notes'}
+        </span>
+      </h2>
+
+      {error && (
+        <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {canAdd && !showAdd && (
+        <button
+          onClick={() => setShowAdd(true)}
+          data-testid="add-note-button"
+          className="mb-4 inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded hover:bg-purple-700 transition-colors"
+        >
+          <Edit2 className="w-4 h-4" /> Add note
+        </button>
+      )}
+
+      {canAdd && showAdd && (
+        <div className="mb-4 p-3 bg-white border border-purple-200 rounded-lg">
+          <label className="block text-xs text-gray-500 mb-1">New note</label>
+          <textarea
+            value={newBody}
+            onChange={(e) => setNewBody(e.target.value)}
+            rows={4}
+            placeholder="Type a note about this patient..."
+            className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:border-purple-500 focus:outline-none"
+            autoFocus
+            disabled={busy}
+          />
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={handleAdd}
+              disabled={busy || !newBody.trim()}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+              Save note
+            </button>
+            <button
+              onClick={() => { setShowAdd(false); setNewBody(''); setError(null); }}
+              disabled={busy}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded"
+            >
+              <X className="w-3 h-3" /> Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {notes.length === 0 ? (
+        <p className="text-sm text-gray-500 italic">No notes yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {notes.map((n) => {
+            const isEditing = editingId === n.id;
+            const isOwn = n.created_by === currentUsername;
+            const canEditThis = isOwn || canDelete; // admin (canDelete) can edit anyone's note
+            return (
+              <div key={n.id} className="bg-white border border-purple-200 rounded-lg p-3 shadow-sm">
+                {isEditing ? (
+                  <div>
+                    <textarea
+                      value={editBody}
+                      onChange={(e) => setEditBody(e.target.value)}
+                      rows={4}
+                      className="w-full px-2 py-1.5 text-sm border border-purple-300 rounded focus:border-purple-500 focus:outline-none"
+                      autoFocus
+                      disabled={busy}
+                    />
+                    <div className="flex gap-1 mt-2">
+                      <button
+                        onClick={() => saveEdit(n)}
+                        disabled={busy || !editBody.trim()}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded disabled:opacity-50"
+                      >
+                        <Check className="w-3 h-3" /> Save
+                      </button>
+                      <button
+                        onClick={() => { setEditingId(null); setEditBody(''); setError(null); }}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded"
+                      >
+                        <X className="w-3 h-3" /> Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap">{n.body}</p>
+                    <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
+                      <span>{n.created_by}</span>
+                      <span>·</span>
+                      <span>{n.created_at ? new Date(n.created_at).toLocaleString('en-GB', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                      {n.updated_at && n.updated_at !== n.created_at && (
+                        <>
+                          <span>·</span>
+                          <span className="italic">edited by {n.updated_by}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex gap-1 mt-2">
+                      {canEditThis && (
+                        <button
+                          onClick={() => startEdit(n)}
+                          className="p-1 text-gray-400 hover:text-purple-600 rounded"
+                          title="Edit"
+                          data-testid={`edit-note-${n.id}`}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(n)}
+                          className="p-1 text-gray-400 hover:text-red-600 rounded"
+                          title="Delete (admin only)"
+                          data-testid={`delete-note-${n.id}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function PatientJourney({ stationsVisited = [], isAdmin = false, onToggle }) {
   let stations = [];

@@ -500,6 +500,107 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
   }
 
   // ============================================================
+  console.log("\n--- 11e. PATIENT NOTES (standalone text notes) ---");
+  // ============================================================
+  // Standalone text notes, no file. Permission model:
+  //   - Read:    all roles
+  //   - Create:  admin or station_manager
+  //   - Edit:    admin OR the original author of the note
+  //   - Delete:  admin only
+  // Clean up first.
+  exec11d(`docker exec -i cambodia-vision-db mysql -u root -prootpw cambodia_vision -e "DELETE FROM patient_notes WHERE patient_id = 17;" 2>/dev/null`);
+
+  // Admin creates a note
+  const note1 = await http("POST", "/api/patients/17/notes", {
+    cookie: adminC, body: { body: "Admin note: BP elevated 160/95, follow up in 2 weeks" }
+  });
+  const noteId1 = note1.json?.data?.id;
+  record("Admin can create a note", note1.status === 200 && noteId1 > 0,
+    `status=${note1.status}, id=${noteId1}`);
+
+  // Doctor creates a note
+  const note2 = await http("POST", "/api/patients/17/notes", {
+    cookie: doctorCookie, body: { body: "Doctor note: patient prefers afternoon appointments" }
+  });
+  const noteId2 = note2.json?.data?.id;
+  record("Station manager (doctor) can create a note",
+    note2.status === 200 && noteId2 > 0,
+    `status=${note2.status}, id=${noteId2}`);
+
+  // Volunteer CANNOT create
+  const noteVol = await http("POST", "/api/patients/17/notes", {
+    cookie: volCookie, body: { body: "should fail" }
+  });
+  record("Volunteer cannot create a note (403)", noteVol.status === 403, `status=${noteVol.status}`);
+
+  // Empty body rejected
+  const noteEmpty = await http("POST", "/api/patients/17/notes", {
+    cookie: adminC, body: { body: "" }
+  });
+  record("Empty body rejected (400)", noteEmpty.status === 400, `status=${noteEmpty.status}`);
+
+  // Whitespace-only body rejected
+  const noteWs = await http("POST", "/api/patients/17/notes", {
+    cookie: adminC, body: { body: "   \n  \t  " }
+  });
+  record("Whitespace-only body rejected (400)", noteWs.status === 400, `status=${noteWs.status}`);
+
+  // Volunteer can LIST
+  const listN = await http("GET", "/api/patients/17/notes", { cookie: volCookie });
+  record("Volunteer can list notes (read-only)",
+    listN.status === 200 && (listN.json?.data?.length || 0) >= 2,
+    `status=${listN.status}, count=${listN.json?.data?.length}`);
+
+  // Doctor edits OWN note
+  const patchOwn = await http("PATCH", `/api/patients/17/notes/${noteId2}`, {
+    cookie: doctorCookie, body: { body: "Updated by doctor: strongly prefers afternoon" }
+  });
+  record("Doctor can edit their own note (200)", patchOwn.status === 200, `status=${patchOwn.status}`);
+  const verifyOwn = await http("GET", "/api/patients/17/notes", { cookie: adminC });
+  const v = (verifyOwn.json?.data || []).find(n => n.id === noteId2);
+  record("Own-note edit actually persisted in DB",
+    v?.body === "Updated by doctor: strongly prefers afternoon" && v?.updated_by === "doctor",
+    `body=${v?.body}, updated_by=${v?.updated_by}`);
+
+  // Doctor CANNOT edit admin's note
+  const patchOther = await http("PATCH", `/api/patients/17/notes/${noteId1}`, {
+    cookie: doctorCookie, body: { body: "tampered" }
+  });
+  record("Doctor cannot edit admin's note (403)", patchOther.status === 403, `status=${patchOther.status}`);
+
+  // Admin CAN edit doctor's note
+  const adminPatch = await http("PATCH", `/api/patients/17/notes/${noteId2}`, {
+    cookie: adminC, body: { body: "ADMIN-OVERRIDE: was seen 2026-10-04" }
+  });
+  record("Admin can edit any note (200)", adminPatch.status === 200, `status=${adminPatch.status}`);
+  const verifyAdmin = await http("GET", "/api/patients/17/notes", { cookie: adminC });
+  const v2 = (verifyAdmin.json?.data || []).find(n => n.id === noteId2);
+  record("Admin edit recorded as updated_by='admin'",
+    v2?.body === "ADMIN-OVERRIDE: was seen 2026-10-04" && v2?.updated_by === "admin",
+    `updated_by=${v2?.updated_by}`);
+
+  // Doctor CANNOT delete
+  const delDoc = await http("DELETE", `/api/patients/17/notes/${noteId1}`, { cookie: doctorCookie });
+  record("Doctor cannot delete a note (admin-only, 403)", delDoc.status === 403, `status=${delDoc.status}`);
+
+  // Admin CAN delete
+  const delAdm = await http("DELETE", `/api/patients/17/notes/${noteId1}`, { cookie: adminC });
+  record("Admin can delete a note (200)", delAdm.status === 200, `status=${delAdm.status}`);
+  const afterDelNote = await http("GET", "/api/patients/17/notes", { cookie: adminC });
+  record("Deleted note is gone from list",
+    !(afterDelNote.json?.data || []).some(n => n.id === noteId1),
+    `noteId1=${noteId1} still in list`);
+
+  // Cleanup second note
+  await http("DELETE", `/api/patients/17/notes/${noteId2}`, { cookie: adminC });
+
+  // Verify patient GET includes notes
+  const p17notes = await http("GET", "/api/patients/17", { cookie: adminC });
+  record("Patient GET response includes notes array",
+    Array.isArray(p17notes.json?.data?.notes),
+    `notes type=${typeof p17notes.json?.data?.notes}`);
+
+  // ============================================================
   console.log("\n--- 12. DATA REPORT (admin-only after fix) ---");
   // ============================================================
   const report = await http("GET", "/api/patients/report", { cookie: adminC });
