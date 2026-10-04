@@ -16,8 +16,49 @@ export async function GET(request, { params }) {
 
     const patient = rows[0];
 
-    const session = await getSession();
-    const responseData = { ...patient };
+    // Fetch related records in parallel
+    const [
+      gpExaminationRows,
+      surgeryDecisionRows,
+      surgeryRecordRows,
+    ] = await Promise.all([
+      db.execute('SELECT * FROM gp_examinations WHERE patient_id = ? ORDER BY examined_at DESC LIMIT 1', [id]),
+      db.execute('SELECT * FROM surgery_decisions WHERE patient_id = ? ORDER BY decided_at DESC LIMIT 1', [id]),
+      db.execute(
+        `SELECT sr.*, s.name AS surgeon_name, s.active AS surgeon_active
+         FROM surgery_records sr
+         LEFT JOIN surgeons s ON sr.surgeon_id = s.id
+         WHERE sr.patient_id = ?
+         ORDER BY sr.created_at ASC`,
+        [id]
+      ),
+    ]);
+
+    // Normalize surgery_records: the procedure_type/iol_type/incision columns
+    // may hold either a plain string ("PHACO") or a JSON array (["PHACO","PHACO"])
+    // depending on which client posted them. Decode robustly.
+    const surgeryRecords = surgeryRecordRows[0].map((r) => ({
+      id: r.id,
+      patient_id: r.patient_id,
+      eye: r.eye,
+      procedure_type: parseMaybeJson(r.procedure_type),
+      iol_type: parseMaybeJson(r.iol_type),
+      incision: parseMaybeJson(r.incision),
+      also_used: parseMaybeJson(r.also_used) || [],
+      complications: parseMaybeJson(r.complications) || [],
+      surgeon_id: r.surgeon_id,
+      surgeon_name: r.surgeon_name || `Surgeon #${r.surgeon_id}`,
+      surgeon_active: r.surgeon_active,
+      surgeon_notes: r.surgeon_notes,
+      created_at: r.created_at,
+    }));
+
+    const responseData = {
+      ...patient,
+      gp_examination: gpExaminationRows[0][0] || null,
+      surgery_decision: surgeryDecisionRows[0][0] || null,
+      surgery_records: surgeryRecords,
+    };
 
     return Response.json({
       data: responseData,
@@ -76,3 +117,15 @@ export async function PUT(request, { params }) {
 }
 
 // DELETE endpoint removed — patient deletion should only happen via direct SQL backend access.
+
+// Try to parse a column that may be JSON or a plain string. Falls back to the raw value.
+function parseMaybeJson(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v !== 'string') return v;
+  const trimmed = v.trim();
+  if (!trimmed) return null;
+  if (trimmed[0] === '[' || trimmed[0] === '{') {
+    try { return JSON.parse(trimmed); } catch { return v; }
+  }
+  return v;
+}
