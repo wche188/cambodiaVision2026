@@ -314,7 +314,6 @@ export default function PatientDetailPage() {
 // Photo retake / upload dialog (admin only)
 // ============================================================
 function PhotoDialog({ patientId, hasPhoto, onClose, onUpdated }) {
-  const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -397,7 +396,7 @@ function PhotoDialog({ patientId, hasPhoto, onClose, onUpdated }) {
         )}
 
         <div className="space-y-2">
-          {/* Camera capture (mobile) */}
+          {/* Camera capture (mobile) — only option, just like the scans */}
           <button
             onClick={() => cameraInputRef.current?.click()}
             disabled={busy}
@@ -406,7 +405,7 @@ function PhotoDialog({ patientId, hasPhoto, onClose, onUpdated }) {
             <Camera className="w-5 h-5 text-blue-600" />
             <div>
               <p className="font-medium text-gray-900">Take photo</p>
-              <p className="text-xs text-gray-500">Use the camera (mobile)</p>
+              <p className="text-xs text-gray-500">Opens the camera</p>
             </div>
           </button>
           <input
@@ -414,26 +413,6 @@ function PhotoDialog({ patientId, hasPhoto, onClose, onUpdated }) {
             type="file"
             accept="image/*"
             capture="environment"
-            onChange={handleFile}
-            className="hidden"
-          />
-
-          {/* Upload from device */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={busy}
-            className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-left"
-          >
-            <Upload className="w-5 h-5 text-indigo-600" />
-            <div>
-              <p className="font-medium text-gray-900">Upload from device</p>
-              <p className="text-xs text-gray-500">Choose an image file</p>
-            </div>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
             onChange={handleFile}
             className="hidden"
           />
