@@ -71,7 +71,7 @@ if $DRY_RUN; then
 fi
 
 # Commit
-git commit -m "$MSG" -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+git commit -m "$MSG"
 
 # Push
 echo ""
