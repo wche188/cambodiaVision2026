@@ -229,22 +229,32 @@ export default function StationPage() {
 
         {/* Scanned patient — confirm screen or surgery form */}
         {scannedPatient && session?.assignedStation === 'Surgery' && (
-          <SurgeryForm
-            patient={scannedPatient}
-            onCancel={() => setScannedPatient(null)}
-            onComplete={(msg) => {
-              setConfirmResult({ success: true, message: msg });
-              setScannedPatient(null);
-              // After submitting the surgery record, take the surgery station
-              // manager straight to the patient page so they can add notes
-              // and post-op scans without going back through the list.
-              router.push(`/patient/${scannedPatient.id}`);
-            }}
-            onError={(msg) => {
-              setConfirmResult({ success: false, message: msg });
-              setScannedPatient(null);
-            }}
-          />
+          <div className="bg-white rounded-xl border-2 border-blue-200 p-6 space-y-4">
+            <SurgeryForm
+              patient={scannedPatient}
+              onCancel={() => setScannedPatient(null)}
+              onComplete={(msg) => {
+                setConfirmResult({ success: true, message: msg });
+                setScannedPatient(null);
+                // After submitting the surgery record, take the surgery station
+                // manager straight to the patient page so they can add notes
+                // and post-op scans without going back through the list.
+                router.push(`/patient/${scannedPatient.id}`);
+              }}
+              onError={(msg) => {
+                setConfirmResult({ success: false, message: msg });
+                setScannedPatient(null);
+              }}
+            />
+            {/* Skip the form: jump straight to the patient page to add
+                notes and scans without entering surgery data here. */}
+            <a
+              href={`/patient/${scannedPatient.id}`}
+              className="block w-full py-3 min-h-[44px] text-center bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              📋 Go to patient page
+            </a>
+          </div>
         )}
 
         {scannedPatient && session?.assignedStation !== 'Surgery' && (
@@ -276,16 +286,6 @@ export default function StationPage() {
                 {confirming ? 'Confirming...' : 'Confirm ✓'}
               </button>
             </div>
-            {/* After confirm — let the surgery station manager jump straight to
-                the patient page so they can add notes and post-op scans. */}
-            {session?.assignedStation === 'Surgery' && (
-              <a
-                href={`/patient/${scannedPatient.id}`}
-                className="block w-full py-3 min-h-[44px] text-center bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-              >
-                📋 Go to patient page
-              </a>
-            )}
           </div>
         )}
 
