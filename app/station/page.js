@@ -291,6 +291,18 @@ export default function StationPage() {
                 {confirming ? 'Confirming...' : 'Confirm ✓'}
               </button>
             </div>
+            {/* Download Surgery Form — Doctor still needs this to pre-fill
+                the surgery record before the patient reaches the Surgery
+                station. The Surgery station manager no longer uses this —
+                they go directly to the patient page. */}
+            {session?.assignedStation === 'Doctor' && (
+              <a
+                href={`/api/generate-pdf/${scannedPatient.id}?type=surgery`}
+                className="block w-full py-3 min-h-[44px] text-center bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+              >
+                📄 Download Surgery Form
+              </a>
+            )}
           </div>
         )}
 

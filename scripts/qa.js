@@ -651,6 +651,30 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
     noteDel.status === 200 || noteDel.status === 403, `status=${noteDel.status}`);
 
   // ============================================================
+  console.log("\n--- 11g. STATION PDF ACCESS BY ROLE ---");
+  // ============================================================
+  // Doctor (assignedStation=Doctor) needs to download the surgery form PDF
+  // to pre-fill the surgery record before the patient reaches the Surgery
+  // station. Surgery station manager no longer needs it.
+  // Doctor can download surgery form PDF
+  const docPdf = await http("GET", "/api/generate-pdf/17?type=surgery", { cookie: doctorCookie });
+  const isPkHeader = docPdf.body && docPdf.body.length > 2 &&
+    docPdf.body.charCodeAt(0) === 0x50 && docPdf.body.charCodeAt(1) === 0x4b;
+  record("Doctor can download surgery form PDF (200, valid docx)",
+    docPdf.status === 200 && isPkHeader,
+    `status=${docPdf.status}, size=${docPdf.body?.length}, isPK=${isPkHeader}`);
+
+  // Surgery station manager should ALSO be able to download (not blocked)
+  const surgPdf = await http("GET", "/api/generate-pdf/17?type=surgery", { cookie: surgeryCookie });
+  record("Surgery station manager can still download surgery form PDF (200)",
+    surgPdf.status === 200, `status=${surgPdf.status}`);
+
+  // Volunteer cannot download surgery form (only allowed for registration)
+  const volPdf = await http("GET", "/api/generate-pdf/17?type=surgery", { cookie: volCookie });
+  record("Volunteer cannot download surgery form PDF (403)",
+    volPdf.status === 403, `status=${volPdf.status}`);
+
+  // ============================================================
   console.log("\n--- 12. DATA REPORT (admin-only after fix) ---");
   // ============================================================
   const report = await http("GET", "/api/patients/report", { cookie: adminC });
