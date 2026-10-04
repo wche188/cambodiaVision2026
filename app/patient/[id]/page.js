@@ -16,6 +16,22 @@ export default function PatientDetailPage() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const fetchPatient = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/patients/${id}`);
+      if (res.status === 401) {
+        router.push('/login');
+        return;
+      }
+      if (res.ok) {
+        const json = await res.json();
+        setPatient(json.data);
+      }
+    } catch (err) {
+      console.error('Error fetching patient:', err);
+    }
+  }, [id, router]);
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -594,7 +610,7 @@ function AttachmentsSection({
                 value={noteDraft}
                 onChange={(e) => setNoteDraft(e.target.value)}
                 placeholder="e.g. Pre-op retinal scan, left eye"
-                className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
+                className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border border-gray-200 rounded"
                 disabled={uploading || atLimit}
               />
             </div>
@@ -711,7 +727,7 @@ function AttachmentItem({
                   value={noteValue}
                   onChange={(e) => setNoteValue(e.target.value)}
                   rows={3}
-                  className="w-full px-2 py-1.5 text-sm border border-blue-300 rounded focus:border-blue-500 focus:outline-none"
+                  className="w-full px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 border border-blue-300 rounded focus:border-blue-500 focus:outline-none"
                   placeholder="Write a note for this scan..."
                   autoFocus
                 />
@@ -1057,7 +1073,7 @@ function NotesSection({ notes, canAdd, canDelete, currentUsername, onChanged, pa
             onChange={(e) => setNewBody(e.target.value)}
             rows={4}
             placeholder="Type a note about this patient..."
-            className="w-full px-3 py-2 border border-gray-200 rounded text-sm focus:border-purple-500 focus:outline-none"
+            className="w-full px-3 py-2 text-sm text-gray-900 placeholder-gray-400 border border-gray-200 rounded focus:border-purple-500 focus:outline-none"
             autoFocus
             disabled={busy}
           />
@@ -1097,7 +1113,7 @@ function NotesSection({ notes, canAdd, canDelete, currentUsername, onChanged, pa
                       value={editBody}
                       onChange={(e) => setEditBody(e.target.value)}
                       rows={4}
-                      className="w-full px-2 py-1.5 text-sm border border-purple-300 rounded focus:border-purple-500 focus:outline-none"
+                      className="w-full px-2 py-1.5 text-sm text-gray-900 placeholder-gray-400 border border-purple-300 rounded focus:border-purple-500 focus:outline-none"
                       autoFocus
                       disabled={busy}
                     />
