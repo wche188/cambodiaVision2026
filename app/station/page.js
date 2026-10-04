@@ -235,6 +235,10 @@ export default function StationPage() {
             onComplete={(msg) => {
               setConfirmResult({ success: true, message: msg });
               setScannedPatient(null);
+              // After submitting the surgery record, take the surgery station
+              // manager straight to the patient page so they can add notes
+              // and post-op scans without going back through the list.
+              router.push(`/patient/${scannedPatient.id}`);
             }}
             onError={(msg) => {
               setConfirmResult({ success: false, message: msg });
@@ -272,13 +276,14 @@ export default function StationPage() {
                 {confirming ? 'Confirming...' : 'Confirm ✓'}
               </button>
             </div>
-            {/* Download Surgery Form — only for Doctor and Surgery station managers */}
-            {(session?.assignedStation === 'Doctor' || session?.assignedStation === 'Surgery') && (
+            {/* After confirm — let the surgery station manager jump straight to
+                the patient page so they can add notes and post-op scans. */}
+            {session?.assignedStation === 'Surgery' && (
               <a
-                href={`/api/generate-pdf/${scannedPatient.id}?type=surgery`}
+                href={`/patient/${scannedPatient.id}`}
                 className="block w-full py-3 min-h-[44px] text-center bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
               >
-                📄 Download Surgery Form
+                📋 Go to patient page
               </a>
             )}
           </div>
@@ -473,12 +478,6 @@ function SurgeryForm({ patient, onCancel, onComplete, onError }) {
         </p>
         <p className="text-sm text-gray-500 font-mono">#{patient.patient_number}</p>
         <p className="text-sm font-medium text-blue-700 mt-1">Surgery Record</p>
-        <a
-          href={`/api/generate-pdf/${patient.id}?type=surgery`}
-          className="inline-flex items-center gap-1 mt-2 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700"
-        >
-          📄 Download Surgery Form
-        </a>
       </div>
 
       {/* Eye selection */}

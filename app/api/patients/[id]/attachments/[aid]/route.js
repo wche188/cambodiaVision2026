@@ -43,7 +43,8 @@ export async function GET(_request, { params }) {
 
 /**
  * PATCH /api/patients/[id]/attachments/[aid]
- * Edit the note (and only the note) on an attachment. Admin only.
+ * Edit the note (and only the note) on an attachment. Admin OR the
+ * original uploader of the attachment.
  * Body: { note: string|null }
  */
 export async function PATCH(request, { params }) {
@@ -53,16 +54,22 @@ export async function PATCH(request, { params }) {
     if (!session || !session.role) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    if (session.role !== 'admin') {
-      return Response.json({ error: 'Forbidden — admin only' }, { status: 403 });
-    }
 
     const [existing] = await pool.execute(
-      'SELECT id, patient_id FROM patient_attachments WHERE id = ? AND patient_id = ?',
+      'SELECT id, patient_id, uploaded_by FROM patient_attachments WHERE id = ? AND patient_id = ?',
       [aid, id]
     );
     if (existing.length === 0) {
       return Response.json({ error: 'Attachment not found' }, { status: 404 });
+    }
+
+    const isAdmin = session.role === 'admin';
+    const isUploader = (session.username || '') === existing[0].uploaded_by;
+    if (!isAdmin && !isUploader) {
+      return Response.json(
+        { error: 'Forbidden — only the uploader or an admin can edit this attachment' },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -86,7 +93,7 @@ export async function PATCH(request, { params }) {
 
 /**
  * DELETE /api/patients/[id]/attachments/[aid]
- * Delete an attachment (and its file data). Admin only.
+ * Delete an attachment. Admin OR the original uploader.
  */
 export async function DELETE(_request, { params }) {
   return withDb(async (pool) => {
@@ -95,16 +102,22 @@ export async function DELETE(_request, { params }) {
     if (!session || !session.role) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    if (session.role !== 'admin') {
-      return Response.json({ error: 'Forbidden — admin only' }, { status: 403 });
-    }
 
     const [existing] = await pool.execute(
-      'SELECT id FROM patient_attachments WHERE id = ? AND patient_id = ?',
+      'SELECT id, uploaded_by FROM patient_attachments WHERE id = ? AND patient_id = ?',
       [aid, id]
     );
     if (existing.length === 0) {
       return Response.json({ error: 'Attachment not found' }, { status: 404 });
+    }
+
+    const isAdmin = session.role === 'admin';
+    const isUploader = (session.username || '') === existing[0].uploaded_by;
+    if (!isAdmin && !isUploader) {
+      return Response.json(
+        { error: 'Forbidden — only the uploader or an admin can delete this attachment' },
+        { status: 403 }
+      );
     }
 
     await pool.execute('DELETE FROM patient_attachments WHERE id = ?', [aid]);

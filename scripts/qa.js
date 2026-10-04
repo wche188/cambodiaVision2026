@@ -392,27 +392,52 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
   const updated = (listAfterPatch.json?.data || []).find(a => a.id === attId);
   record("Note was actually updated in DB", updated?.note === newNote, `note=${JSON.stringify(updated?.note)}`);
 
-  // Station manager CANNOT edit note
-  const patchDr = await http("PATCH", `/api/patients/17/attachments/${attId}`, {
-    cookie: doctorCookie, body: { note: "should fail" }
+  // Uploader (doctor) CAN edit the note on their own upload
+  const doctorAttId = upload2.json?.data?.id; // this is the doctor's upload
+  const patchOwn = await http("PATCH", `/api/patients/17/attachments/${doctorAttId}`, {
+    cookie: doctorCookie, body: { note: "Updated by uploader" }
   });
-  record("Station manager cannot edit note (admin-only)", patchDr.status === 403, `status=${patchDr.status}`);
+  record("Uploader (station manager) can edit note on their own scan",
+    patchOwn.status === 200, `status=${patchOwn.status}`);
+  const verifyOwn = await http("GET", "/api/patients/17/attachments", { cookie: adminC });
+  const updatedOwn = (verifyOwn.json?.data || []).find(a => a.id === doctorAttId);
+  record("Uploader's own-note edit persisted", updatedOwn?.note === "Updated by uploader",
+    `note=${JSON.stringify(updatedOwn?.note)}`);
 
-  // Station manager CANNOT delete
+  // Doctor CANNOT edit admin's scan
+  const patchOther = await http("PATCH", `/api/patients/17/attachments/${attId}`, {
+    cookie: doctorCookie, body: { note: "tampered" }
+  });
+  record("Uploader (doctor) cannot edit OTHER uploader's note (403)",
+    patchOther.status === 403, `status=${patchOther.status}`);
+
+  // Admin CAN edit anyone's note
+  const adminPatch = await http("PATCH", `/api/patients/17/attachments/${attId}`, {
+    cookie: adminC, body: { note: "admin-edits-own" }
+  });
+  record("Admin can edit any attachment note", adminPatch.status === 200, `status=${adminPatch.status}`);
+
+  // Uploader (doctor) CAN delete their own attachment
+  const delOwn = await http("DELETE", `/api/patients/17/attachments/${doctorAttId}`, { cookie: doctorCookie });
+  record("Uploader can delete their own scan", delOwn.status === 200, `status=${delOwn.status}`);
+
+  // But doctor CANNOT delete admin's scan
   const delDr = await http("DELETE", `/api/patients/17/attachments/${attId}`, { cookie: doctorCookie });
-  record("Station manager cannot delete (admin-only)", delDr.status === 403, `status=${delDr.status}`);
+  record("Uploader (doctor) cannot delete OTHER uploader's scan (403)",
+    delDr.status === 403, `status=${delDr.status}`);
 
-  // Admin can delete
+  // Admin CAN delete any
   const delAtt = await http("DELETE", `/api/patients/17/attachments/${attId}`, { cookie: adminC });
-  record("Admin can delete scan", delAtt.status === 200, `status=${delAtt.status}`);
+  record("Admin can delete any scan", delAtt.status === 200, `status=${delAtt.status}`);
 
-  // Verify it's gone
+  // Verify admin's is gone
   const afterDel = await http("GET", `/api/patients/17/attachments/${attId}`, { cookie: adminC });
   record("Deleted scan returns 404 on fetch", afterDel.status === 404, `status=${afterDel.status}`);
 
   // 5-attachment limit
-  // We already have upload2 still there. Add 4 more to reach the cap.
-  for (let i = 0; i < 4; i++) {
+  // Prior steps deleted both admin's and doctor's earlier uploads, so start
+  // fresh and add 5 fillers to reach the cap.
+  for (let i = 0; i < 5; i++) {
     await http("POST", "/api/patients/17/attachments", {
       cookie: adminC,
       body: { file_name: `filler${i}.jpg`, mime_type: "image/jpeg", data: tinyJpegB64 }
@@ -552,29 +577,29 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
     `status=${listN.status}, count=${listN.json?.data?.length}`);
 
   // Doctor edits OWN note
-  const patchOwn = await http("PATCH", `/api/patients/17/notes/${noteId2}`, {
+  const patchOwnNote = await http("PATCH", `/api/patients/17/notes/${noteId2}`, {
     cookie: doctorCookie, body: { body: "Updated by doctor: strongly prefers afternoon" }
   });
-  record("Doctor can edit their own note (200)", patchOwn.status === 200, `status=${patchOwn.status}`);
-  const verifyOwn = await http("GET", "/api/patients/17/notes", { cookie: adminC });
-  const v = (verifyOwn.json?.data || []).find(n => n.id === noteId2);
+  record("Doctor can edit their own note (200)", patchOwnNote.status === 200, `status=${patchOwnNote.status}`);
+  const verifyOwnNote = await http("GET", "/api/patients/17/notes", { cookie: adminC });
+  const v = (verifyOwnNote.json?.data || []).find(n => n.id === noteId2);
   record("Own-note edit actually persisted in DB",
     v?.body === "Updated by doctor: strongly prefers afternoon" && v?.updated_by === "doctor",
     `body=${v?.body}, updated_by=${v?.updated_by}`);
 
   // Doctor CANNOT edit admin's note
-  const patchOther = await http("PATCH", `/api/patients/17/notes/${noteId1}`, {
+  const patchOtherNote = await http("PATCH", `/api/patients/17/notes/${noteId1}`, {
     cookie: doctorCookie, body: { body: "tampered" }
   });
-  record("Doctor cannot edit admin's note (403)", patchOther.status === 403, `status=${patchOther.status}`);
+  record("Doctor cannot edit admin's note (403)", patchOtherNote.status === 403, `status=${patchOtherNote.status}`);
 
   // Admin CAN edit doctor's note
-  const adminPatch = await http("PATCH", `/api/patients/17/notes/${noteId2}`, {
+  const adminPatchNote = await http("PATCH", `/api/patients/17/notes/${noteId2}`, {
     cookie: adminC, body: { body: "ADMIN-OVERRIDE: was seen 2026-10-04" }
   });
-  record("Admin can edit any note (200)", adminPatch.status === 200, `status=${adminPatch.status}`);
-  const verifyAdmin = await http("GET", "/api/patients/17/notes", { cookie: adminC });
-  const v2 = (verifyAdmin.json?.data || []).find(n => n.id === noteId2);
+  record("Admin can edit any note (200)", adminPatchNote.status === 200, `status=${adminPatchNote.status}`);
+  const verifyAdminNote = await http("GET", "/api/patients/17/notes", { cookie: adminC });
+  const v2 = (verifyAdminNote.json?.data || []).find(n => n.id === noteId2);
   record("Admin edit recorded as updated_by='admin'",
     v2?.body === "ADMIN-OVERRIDE: was seen 2026-10-04" && v2?.updated_by === "admin",
     `updated_by=${v2?.updated_by}`);

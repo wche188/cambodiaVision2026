@@ -49,13 +49,14 @@ export default function PatientDetailPage() {
 
   const isAdmin = session?.role === 'admin';
   const isStationManager = session?.role === 'station_manager';
+  const currentUsername = session?.username || '';
   const canEditStations = isAdmin;
-  const canDownloadSurgeryForm = isAdmin || isStationManager;
+  const canDownloadRegistrationForm = isAdmin || isStationManager;
   const canUploadAttachment = isAdmin || isStationManager;
-  const canEditAttachmentNote = isAdmin;
-  const canDeleteAttachment = isAdmin;
+  const canEditPatientPhoto = isAdmin; // only admin can retake patient photo
   const canAddNote = isAdmin || isStationManager;
-  const canDeleteNote = isAdmin;
+  const canDeleteNote = isAdmin; // delete any note is admin-only (each uploader can edit their own)
+  const canDeleteAnyAttachment = isAdmin; // uploader can delete their own; admin can delete any
 
   const [showPhotoDialog, setShowPhotoDialog] = useState(false);
   const [attachments, setAttachments] = useState([]);
@@ -180,15 +181,6 @@ export default function PatientDetailPage() {
                   <FileText className="w-4 h-4" />
                   Registration Form
                 </a>
-                {canDownloadSurgeryForm && (
-                  <a
-                    href={`/api/generate-pdf/${patient.id}?type=surgery`}
-                    className="inline-flex items-center gap-2 px-4 py-2 min-h-[44px] bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
-                  >
-                    <FileText className="w-4 h-4" />
-                    Surgery Form
-                  </a>
-                )}
               </div>
             </div>
 
@@ -295,8 +287,9 @@ export default function PatientDetailPage() {
           attachments={attachments}
           loading={attachmentsLoading}
           canUpload={canUploadAttachment}
-          canEditNote={canEditAttachmentNote}
-          canDelete={canDeleteAttachment}
+          canDeleteAny={canDeleteAnyAttachment}
+          isAdmin={isAdmin}
+          currentUsername={currentUsername}
           patientId={id}
           onUploaded={() => fetchAttachments()}
           onDeleted={() => fetchAttachments()}
@@ -489,7 +482,7 @@ async function downscaleImage(file, maxSide, quality) {
 // Attachments section
 // ============================================================
 function AttachmentsSection({
-  attachments, loading, canUpload, canEditNote, canDelete, patientId,
+  attachments, loading, canUpload, canDeleteAny, isAdmin, currentUsername, patientId,
   onUploaded, onDeleted, editingNoteId, setEditingNoteId,
   editingNoteValue, setEditingNoteValue,
 }) {
@@ -642,22 +635,27 @@ function AttachmentsSection({
         <p className="text-sm text-gray-500 italic">No scans yet.</p>
       ) : (
         <div className="space-y-3">
-          {attachments.map((att) => (
-            <AttachmentItem
-              key={att.id}
-              att={att}
-              patientId={patientId}
-              canEditNote={canEditNote}
-              canDelete={canDelete}
-              isEditingNote={editingNoteId === att.id}
-              noteValue={editingNoteValue}
-              setNoteValue={setEditingNoteValue}
-              onStartEditNote={() => startEditNote(att)}
-              onCancelEditNote={() => setEditingNoteId(null)}
-              onSaveNote={() => saveNote(att)}
-              onDelete={() => handleDelete(att)}
-            />
-          ))}
+          {attachments.map((att) => {
+            const isOwnUpload = att.uploaded_by === currentUsername;
+            const canEditThisNote = isOwnUpload || isAdmin;
+            const canDeleteThis = isOwnUpload || canDeleteAny;
+            return (
+              <AttachmentItem
+                key={att.id}
+                att={att}
+                patientId={patientId}
+                canEditNote={canEditThisNote}
+                canDelete={canDeleteThis}
+                isEditingNote={editingNoteId === att.id}
+                noteValue={editingNoteValue}
+                setNoteValue={setEditingNoteValue}
+                onStartEditNote={() => startEditNote(att)}
+                onCancelEditNote={() => setEditingNoteId(null)}
+                onSaveNote={() => saveNote(att)}
+                onDelete={() => handleDelete(att)}
+              />
+            );
+          })}
         </div>
       )}
     </section>
