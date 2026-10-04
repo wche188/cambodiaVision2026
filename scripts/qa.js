@@ -626,6 +626,31 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
     `notes type=${typeof p17notes.json?.data?.notes}`);
 
   // ============================================================
+  console.log("\n--- 11f. MIDDLEWARE — STATION MANAGER ACCESS TO /patient ---");
+  // ============================================================
+  // The surgery station manager clicks 'Go to patient page' on the station
+  // page after scanning a QR. Middleware must allow /patient/* for
+  // station_manager role (was: redirected back to /station).
+  // Login as the dedicated 'surgery' account for this test.
+  const surgeryCookie = await login("surgery");
+  const patientAsSurg = await http("GET", "/patient/17", { cookie: surgeryCookie });
+  record("Surgery station manager can GET /patient/17 (200, no redirect)",
+    patientAsSurg.status === 200, `status=${patientAsSurg.status}`);
+
+  // And the API endpoints under /api/patients (notes, attachments) must work
+  const noteAsSurg = await http("POST", "/api/patients/17/notes", {
+    cookie: surgeryCookie, body: { body: "qa surgery note" }
+  });
+  record("Surgery station manager can POST /api/patients/17/notes",
+    noteAsSurg.status === 200, `status=${noteAsSurg.status}`);
+  const surgNoteId = noteAsSurg.json?.data?.id;
+  const noteDel = await http("DELETE", `/api/patients/17/notes/${surgNoteId}`, { cookie: surgeryCookie });
+  // Note: deleting own note is admin-only currently (per spec).
+  // Just confirm 200/403 is consistent — not 401/redirect.
+  record("Surgery station manager can hit /api/patients/17/notes (no redirect)",
+    noteDel.status === 200 || noteDel.status === 403, `status=${noteDel.status}`);
+
+  // ============================================================
   console.log("\n--- 12. DATA REPORT (admin-only after fix) ---");
   // ============================================================
   const report = await http("GET", "/api/patients/report", { cookie: adminC });

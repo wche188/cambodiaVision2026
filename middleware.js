@@ -19,6 +19,7 @@ const VOLUNTEER_PATHS = [
 // Paths station managers can access
 const STATION_MANAGER_PATHS = [
   '/station',
+  '/patient',          // station managers can view/edit patient page (notes, scans, etc.)
   '/api/patients',
   '/api/auth/logout',
   '/api/auth/session',

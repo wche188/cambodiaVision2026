@@ -230,6 +230,19 @@ export default function StationPage() {
         {/* Scanned patient — confirm screen or surgery form */}
         {scannedPatient && session?.assignedStation === 'Surgery' && (
           <div className="bg-white rounded-xl border-2 border-blue-200 p-6 space-y-4">
+            {/* Top: jump straight to the patient page to add notes/scans
+                without filling the surgery form. */}
+            <a
+              href={`/patient/${scannedPatient.id}`}
+              className="block w-full py-3 min-h-[44px] text-center bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              📋 Go to patient page
+            </a>
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <span className="flex-1 border-t border-gray-200" />
+              <span>or fill the surgery form below</span>
+              <span className="flex-1 border-t border-gray-200" />
+            </div>
             <SurgeryForm
               patient={scannedPatient}
               onCancel={() => setScannedPatient(null)}
@@ -246,14 +259,6 @@ export default function StationPage() {
                 setScannedPatient(null);
               }}
             />
-            {/* Skip the form: jump straight to the patient page to add
-                notes and scans without entering surgery data here. */}
-            <a
-              href={`/patient/${scannedPatient.id}`}
-              className="block w-full py-3 min-h-[44px] text-center bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-            >
-              📋 Go to patient page
-            </a>
           </div>
         )}
 
