@@ -282,6 +282,99 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
   }
 
   // ============================================================
+  console.log("\n--- 11b. SURGERY INFORMATION (patient detail) ---");
+  // ============================================================
+  // Patient 17 (Hak Chea) has 2 surgery records. Patient 18 (Vann) has none.
+  const p17 = await http("GET", "/api/patients/17", { cookie: adminC });
+  const p17data = p17.json?.data || {};
+  record("Patient 17 has surgery_records array (>=2)", Array.isArray(p17data.surgery_records) && p17data.surgery_records.length >= 2,
+    `count=${p17data.surgery_records?.length}`);
+  record("Patient 17 surgery_records include surgeon_name from JOIN",
+    p17data.surgery_records?.[0]?.surgeon_name && p17data.surgery_records[0].surgeon_name !== `Surgeon #${p17data.surgery_records[0].surgeon_id}`,
+    `surgeon_name=${p17data.surgery_records?.[0]?.surgeon_name}`);
+  record("Patient 17 surgery_records procedure_type normalized (string or array)",
+    p17data.surgery_records?.[0]?.procedure_type !== undefined,
+    `procedure_type=${JSON.stringify(p17data.surgery_records?.[0]?.procedure_type)}`);
+  record("Patient 17 surgery_records also_used is array",
+    Array.isArray(p17data.surgery_records?.[0]?.also_used),
+    `also_used=${JSON.stringify(p17data.surgery_records?.[0]?.also_used)}`);
+
+  // Patient 18 should have 0 surgeries — section will be hidden
+  const p18 = await http("GET", "/api/patients/18", { cookie: adminC });
+  const p18data = p18.json?.data || {};
+  record("Patient 18 has surgery_records=[] (section will be hidden)", Array.isArray(p18data.surgery_records) && p18data.surgery_records.length === 0,
+    `count=${p18data.surgery_records?.length}`);
+
+  // A patient with a null procedure_type (record id 1, patient 1) shouldn't crash
+  const p1 = await http("GET", "/api/patients/1", { cookie: adminC });
+  record("Patient 1 (NULL procedure_type) returns 200 without error", p1.status === 200, `status=${p1.status}`);
+
+  // ============================================================
+  console.log("\n--- 11c. STATUS TRANSITIONS (Prepare_for_Surgery, Surgery_Completed) ---");
+  // ============================================================
+  // This test creates a fresh test patient, walks them through:
+  //   Surgery_Eligible → (download surgery form) → Prepare_for_Surgery → (surgery record) → Surgery_Completed
+  // Then cleans up. We use a unique patient_number based on timestamp.
+  const statusTestPid = String(Date.now()).slice(-4).padStart(4, "0");
+  const newSurgPatient = {
+    family_name: "QASurgFlow", given_name: "Test", patient_number: statusTestPid,
+    age: 50, gender: "Male", contact_phone: "0",
+    province: "P", district: "D", registration_date: "2026-10-04"
+  };
+  const createSurg = await http("POST", "/api/patients", { cookie: volCookie, body: newSurgPatient });
+  if (createSurg.status === 200 || createSurg.status === 201) {
+    const newSurgId = createSurg.json.data.id;
+    record("Created test patient for status-flow QA", true, `id=${newSurgId}`);
+
+    // Force into Surgery_Eligible
+    const { execSync } = require("child_process");
+    execSync(`docker exec -i cambodia-vision-db mysql -u root -prootpw cambodia_vision -e "UPDATE patients SET status='Surgery_Eligible' WHERE id=${newSurgId};" 2>/dev/null`);
+
+    // Pre-condition: status is Surgery_Eligible
+    const pre = await http("GET", `/api/patients/${newSurgId}`, { cookie: adminC });
+    record("Pre-condition: test patient in Surgery_Eligible", pre.json.data.status === "Surgery_Eligible", `status=${pre.json.data.status}`);
+
+    // ACTION 1: Download surgery form (admin)
+    const dlSurg = await http("GET", `/api/generate-pdf/${newSurgId}?type=surgery`, { cookie: adminC });
+    record("Download surgery form (Surgery_Eligible → Prepare_for_Surgery)", dlSurg.status === 200);
+
+    // POST-CONDITION 1: status is Prepare_for_Surgery
+    const afterDl = await http("GET", `/api/patients/${newSurgId}`, { cookie: adminC });
+    record("After surgery form download, status = Prepare_for_Surgery",
+      afterDl.json.data.status === "Prepare_for_Surgery",
+      `status=${afterDl.json.data.status}`);
+
+    // ACTION 2: Submit surgery record
+    const surgRec = await http("POST", `/api/patients/${newSurgId}/surgery-record`, {
+      cookie: adminC, body: { eye: "left", procedure_type: ["PHACO"], surgeon_id: 1, surgeon_notes: "qa status-flow test" }
+    });
+    record("Submit surgery record (Prepare_for_Surgery → Surgery_Completed)", surgRec.status === 200);
+
+    // POST-CONDITION 2: status is Surgery_Completed
+    const afterRec = await http("GET", `/api/patients/${newSurgId}`, { cookie: adminC });
+    record("After surgery record submit, status = Surgery_Completed",
+      afterRec.json.data.status === "Surgery_Completed",
+      `status=${afterRec.json.data.status}`);
+
+    // NEGATIVE CASE: download surgery form for a Registered patient → status must NOT change
+    const negPatient = { ...newSurgPatient, patient_number: String(Date.now() + 1).slice(-4).padStart(4, "0"), family_name: "QANegFlow" };
+    const negCreate = await http("POST", "/api/patients", { cookie: volCookie, body: negPatient });
+    if (negCreate.status === 200 || negCreate.status === 201) {
+      const negId = negCreate.json.data.id;
+      const negDl = await http("GET", `/api/generate-pdf/${negId}?type=surgery`, { cookie: adminC });
+      const negAfter = await http("GET", `/api/patients/${negId}`, { cookie: adminC });
+      record("Surgery form download for Registered patient does NOT change status (state machine guard)",
+        negAfter.json.data.status === "Registered",
+        `status=${negAfter.json.data.status}`);
+    }
+
+    // Cleanup: remove the test patients
+    execSync(`docker exec -i cambodia-vision-db mysql -u root -prootpw cambodia_vision -e "DELETE FROM surgery_records WHERE patient_id IN (${newSurgId}); DELETE FROM patients WHERE id IN (${newSurgId}, ${negCreate.json?.data?.id || 0});" 2>/dev/null`);
+  } else {
+    record("Created test patient for status-flow QA", false, `create returned ${createSurg.status}`);
+  }
+
+  // ============================================================
   console.log("\n--- 12. DATA REPORT (admin-only after fix) ---");
   // ============================================================
   const report = await http("GET", "/api/patients/report", { cookie: adminC });

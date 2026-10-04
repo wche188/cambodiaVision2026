@@ -1,5 +1,6 @@
 import { withDb } from '@/lib/mysql';
 import { getSession } from '@/lib/session';
+import { isValidTransition } from '@/lib/status-pipeline';
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 import QRCode from 'qrcode';
@@ -49,6 +50,16 @@ export async function GET(request, { params }) {
     if (type === 'registration' && !patient.form_printed) {
       await pool.execute(
         "UPDATE patients SET form_printed = 1, status = 'Form_Printed' WHERE id = ? AND status = 'Registered'",
+        [patientId]
+      );
+    }
+
+    // Surgery form download transitions the patient into Prepare_for_Surgery.
+    // Per the state machine in lib/status-pipeline.js, the allowed source
+    // statuses are Surgery_Eligible and Surgery_Scheduled.
+    if (type === 'surgery' && isValidTransition(patient.status, 'Prepare_for_Surgery')) {
+      await pool.execute(
+        "UPDATE patients SET status = 'Prepare_for_Surgery' WHERE id = ?",
         [patientId]
       );
     }

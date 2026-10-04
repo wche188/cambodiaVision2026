@@ -1,4 +1,5 @@
 import { withDb } from '@/lib/mysql';
+import { isValidTransition } from '@/lib/status-pipeline';
 
 /**
  * POST /api/patients/[id]/surgery-record
@@ -52,7 +53,7 @@ export async function POST(request, { params }) {
     );
 
     // Also mark the Surgery station as visited
-    const [rows] = await pool.execute('SELECT stations_visited FROM patients WHERE id = ?', [id]);
+    const [rows] = await pool.execute('SELECT stations_visited, status FROM patients WHERE id = ?', [id]);
     let stations = [];
     try {
       stations = Array.isArray(rows[0].stations_visited)
@@ -63,6 +64,13 @@ export async function POST(request, { params }) {
     if (!stations.includes('Surgery')) {
       stations.push('Surgery');
       await pool.execute('UPDATE patients SET stations_visited = ? WHERE id = ?', [JSON.stringify(stations), id]);
+    }
+
+    // Surgery entry submission transitions the patient into Surgery_Completed.
+    // Allowed source statuses per the state machine: Prepare_for_Surgery
+    // and Surgery_Scheduled.
+    if (isValidTransition(rows[0].status, 'Surgery_Completed')) {
+      await pool.execute("UPDATE patients SET status = 'Surgery_Completed' WHERE id = ?", [id]);
     }
 
     return Response.json({ success: true });
