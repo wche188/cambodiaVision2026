@@ -24,6 +24,7 @@ const STATION_MANAGER_PATHS = [
   '/api/auth/session',
   '/api/stations',
   '/api/surgeons',
+  '/api/generate-pdf',  // station managers need the surgery form during their station
 ];
 
 export async function middleware(request) {

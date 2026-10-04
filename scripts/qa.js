@@ -270,6 +270,15 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
     const pdfNoType = await http("GET", `/api/generate-pdf/${firstId}`, { cookie: adminC });
     record("PDF without type param returns 400 with helpful error", pdfNoType.status === 400 && pdfNoType.json?.error?.includes("type"),
       `status=${pdfNoType.status}, error=${pdfNoType.json?.error}`);
+
+    // BUG regression check: surgery form must be downloadable by station managers
+    // (was: middleware blocked them, link did nothing)
+    const pdfSurgDoc = await http("GET", `/api/generate-pdf/${firstId}?type=surgery`, { cookie: doctorCookie });
+    record("Surgery form downloadable by station manager (BUG was 307 redirect)", pdfSurgDoc.status === 200,
+      `status=${pdfSurgDoc.status}, size=${pdfSurgDoc.body?.length}`);
+
+    const pdfSurgAdmin = await http("GET", `/api/generate-pdf/${firstId}?type=surgery`, { cookie: adminC });
+    record("Surgery form downloadable by admin", pdfSurgAdmin.status === 200, `status=${pdfSurgAdmin.status}`);
   }
 
   // ============================================================
