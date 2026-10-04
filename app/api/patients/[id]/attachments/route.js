@@ -1,39 +1,19 @@
 import { withDb } from '@/lib/mysql';
 import { getSession } from '@/lib/session';
 
-// Maximum upload size: 5 MB as base64 (≈ 3.75 MB binary). Stored in DB longtext.
-const MAX_BYTES = 5 * 1024 * 1024;
+// Maximum number of additional image attachments per patient.
+// (The patient photo itself does not count toward this limit.)
+const MAX_ATTACHMENTS = 5;
 
-// Whitelist of accepted MIME types per category.
-const ALLOWED_MIME = {
-  document: new Set([
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-    'application/msword', // .doc
-    'text/plain',
-    'text/markdown',
-    'text/csv',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  ]),
-  note: new Set([
-    'text/plain',
-    'text/markdown',
-  ]),
-  other: new Set([
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/msword',
-    'text/plain',
-    'text/markdown',
-    'text/csv',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'image/jpeg',
-    'image/png',
-    'image/webp',
-  ]),
-};
+// Whitelist of accepted MIME types. Only images (scans / photos).
+const ALLOWED_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
+// Max decoded size: 5 MB. Stored in DB longtext (≈ 33% base64 overhead = ~6.7 MB row).
+const MAX_BYTES = 5 * 1024 * 1024;
 
 // Convert a base64 data URL or raw base64 to a Buffer and metadata.
 function decodeDataUrl(input) {
@@ -106,19 +86,18 @@ export async function POST(request, { params }) {
     }
 
     const body = await request.json();
-    const { mime_type, data, category: rawCategory, note, file_name: rawFileName } = body || {};
+    const { mime_type, data, note, file_name: rawFileName } = body || {};
 
     if (!data) {
       return Response.json({ error: 'data is required' }, { status: 400 });
     }
 
-    const category = ['document', 'note', 'other'].includes(rawCategory) ? rawCategory : 'document';
     const decoded = decodeDataUrl(data);
     const mime = (mime_type || decoded.mime || 'application/octet-stream').toLowerCase();
 
-    if (!ALLOWED_MIME[category].has(mime)) {
+    if (!ALLOWED_MIME.has(mime)) {
       return Response.json(
-        { error: `Mime type ${mime} not allowed for category ${category}` },
+        { error: `Only image uploads are allowed (jpeg, png, webp). Got: ${mime}` },
         { status: 400 }
       );
     }
@@ -133,20 +112,31 @@ export async function POST(request, { params }) {
       );
     }
 
+    // Enforce the per-patient limit (5 additional image attachments).
+    const [existing] = await pool.execute(
+      'SELECT COUNT(*) AS cnt FROM patient_attachments WHERE patient_id = ?',
+      [id]
+    );
+    if (Number(existing[0].cnt) >= MAX_ATTACHMENTS) {
+      return Response.json(
+        { error: `Maximum ${MAX_ATTACHMENTS} attachments per patient reached. Delete one to add another.` },
+        { status: 409 }
+      );
+    }
+
     const fileName = safeFileName(rawFileName || 'attachment');
     const uploader = session.username || (session.role === 'volunteer' ? 'volunteer' : 'unknown');
 
     const [result] = await pool.execute(
       `INSERT INTO patient_attachments
          (patient_id, file_name, mime_type, size_bytes, data, category, note, uploaded_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, 'other', ?, ?)`,
       [
         id,
         fileName,
         mime,
         decoded.buffer.length,
         decoded.buffer.toString('base64'),
-        category,
         note ? String(note).slice(0, 4000) : null,
         uploader,
       ]
@@ -159,7 +149,6 @@ export async function POST(request, { params }) {
         file_name: fileName,
         mime_type: mime,
         size_bytes: decoded.buffer.length,
-        category,
         note: note || null,
         uploaded_by: uploader,
       },

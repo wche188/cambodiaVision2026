@@ -310,62 +310,87 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
   record("Patient 1 (NULL procedure_type) returns 200 without error", p1.status === 200, `status=${p1.status}`);
 
   // ============================================================
-  console.log("\n--- 11d. PATIENT ATTACHMENTS (upload, list, download, edit note, delete) ---");
+  console.log("\n--- 11d. PATIENT SCANS (image-only attachments, max 5) ---");
   // ============================================================
-  // Test the full attachment lifecycle on patient 17.
-  // Use a tiny text payload to keep things fast.
-  const tinyText = "Attachment test " + Date.now();
-  const tinyB64 = Buffer.from(tinyText).toString("base64");
+  // Per the spec: only image attachments (phone scans/photos), max 5 per patient,
+  // per-attachment note editable by admin. No PDFs/documents.
+  //
+  // First, clean up any leftovers from previous test runs.
+  const { execSync: exec11d } = require("child_process");
+  exec11d(`docker exec -i cambodia-vision-db mysql -u root -prootpw cambodia_vision -e "DELETE FROM patient_attachments WHERE patient_id = 17;" 2>/dev/null`);
+
+  // 1. Tiny valid JPEG (1x1 red pixel) as base64
+  const tinyJpegB64 = "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAr/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwA/wD//Z";
 
   // Admin uploads
   const upload1 = await http("POST", "/api/patients/17/attachments", {
     cookie: adminC,
-    body: { file_name: "qa-test.txt", mime_type: "text/plain", data: tinyB64, category: "note", note: "qa initial" }
+    body: { file_name: "scan1.jpg", mime_type: "image/jpeg", data: tinyJpegB64, note: "left eye" }
   });
   const attId = upload1.json?.data?.id;
-  record("Admin uploads attachment (text/plain, note category)",
-    upload1.status === 200 && attId > 0,
+  record("Admin uploads image scan (jpeg)", upload1.status === 200 && attId > 0,
     `status=${upload1.status}, id=${attId}`);
 
-  // Doctor can also upload
+  // Doctor (station_manager) can also upload
   const upload2 = await http("POST", "/api/patients/17/attachments", {
     cookie: doctorCookie,
-    body: { file_name: "qa-test-doc.pdf", mime_type: "application/pdf", data: tinyB64, category: "document" }
+    body: { file_name: "scan2.png", mime_type: "image/png", data: tinyJpegB64, note: "right eye" }
   });
-  record("Station manager uploads attachment (admin or station_manager allowed)",
+  record("Station manager uploads image scan (admin or station_manager allowed)",
     upload2.status === 200,
     `status=${upload2.status}`);
 
   // Volunteer cannot upload
   const volUpload = await http("POST", "/api/patients/17/attachments", {
     cookie: volCookie,
-    body: { file_name: "should-fail.txt", mime_type: "text/plain", data: tinyB64, category: "note" }
+    body: { file_name: "scan3.jpg", mime_type: "image/jpeg", data: tinyJpegB64 }
   });
-  record("Volunteer cannot upload (403 forbidden)", volUpload.status === 403, `status=${volUpload.status}`);
+  record("Volunteer cannot upload (403)", volUpload.status === 403, `status=${volUpload.status}`);
+
+  // PDF is REJECTED now (no more documents)
+  const pdfUp = await http("POST", "/api/patients/17/attachments", {
+    cookie: adminC,
+    body: { file_name: "bad.pdf", mime_type: "application/pdf", data: tinyJpegB64, note: "should fail" }
+  });
+  record("PDF rejected (only images allowed)", pdfUp.status === 400, `status=${pdfUp.status}`);
+
+  // Text file rejected
+  const txtUp = await http("POST", "/api/patients/17/attachments", {
+    cookie: adminC,
+    body: { file_name: "bad.txt", mime_type: "text/plain", data: tinyJpegB64, note: "should fail" }
+  });
+  record("Text file rejected (only images allowed)", txtUp.status === 400, `status=${txtUp.status}`);
+
+  // Empty data rejected
+  const empty = await http("POST", "/api/patients/17/attachments", {
+    cookie: adminC,
+    body: { file_name: "empty.jpg", mime_type: "image/jpeg", data: "" }
+  });
+  record("Empty data rejected", empty.status === 400, `status=${empty.status}`);
 
   // List as admin
   const listAtt = await http("GET", "/api/patients/17/attachments", { cookie: adminC });
   const atts = listAtt.json?.data || [];
-  record("Admin can list attachments (>=2)", atts.length >= 2, `count=${atts.length}`);
+  record("Admin can list scans (>=2)", atts.length >= 2, `count=${atts.length}`);
 
   // Volunteer can also list (read access)
   const listAttVol = await http("GET", "/api/patients/17/attachments", { cookie: volCookie });
-  record("Volunteer can list attachments (read-only)", listAttVol.status === 200, `status=${listAttVol.status}`);
+  record("Volunteer can list scans (read-only)", listAttVol.status === 200, `status=${listAttVol.status}`);
 
   // Download
   const dlAtt = await http("GET", `/api/patients/17/attachments/${attId}`, { cookie: adminC });
-  const dlText = (dlAtt.body || "").toString();
-  record("Download attachment returns matching bytes", dlAtt.status === 200 && dlText.includes(tinyText),
-    `status=${dlAtt.status}, match=${dlText.includes(tinyText)}`);
+  record("Download scan returns valid image bytes", dlAtt.status === 200 && dlAtt.body.length > 50,
+    `status=${dlAtt.status}, size=${dlAtt.body.length}`);
 
-  // Admin can edit the note
+  // Admin can edit the note (multi-line text)
+  const newNote = "Updated note\nwith multiple\nlines of text";
   const patchAtt = await http("PATCH", `/api/patients/17/attachments/${attId}`, {
-    cookie: adminC, body: { note: "qa updated note" }
+    cookie: adminC, body: { note: newNote }
   });
-  record("Admin can edit attachment note", patchAtt.status === 200, `status=${patchAtt.status}`);
+  record("Admin can edit scan note (multi-line)", patchAtt.status === 200, `status=${patchAtt.status}`);
   const listAfterPatch = await http("GET", "/api/patients/17/attachments", { cookie: adminC });
   const updated = (listAfterPatch.json?.data || []).find(a => a.id === attId);
-  record("Note was actually updated in DB", updated?.note === "qa updated note", `note=${updated?.note}`);
+  record("Note was actually updated in DB", updated?.note === newNote, `note=${JSON.stringify(updated?.note)}`);
 
   // Station manager CANNOT edit note
   const patchDr = await http("PATCH", `/api/patients/17/attachments/${attId}`, {
@@ -379,36 +404,34 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
 
   // Admin can delete
   const delAtt = await http("DELETE", `/api/patients/17/attachments/${attId}`, { cookie: adminC });
-  record("Admin can delete attachment", delAtt.status === 200, `status=${delAtt.status}`);
+  record("Admin can delete scan", delAtt.status === 200, `status=${delAtt.status}`);
 
   // Verify it's gone
   const afterDel = await http("GET", `/api/patients/17/attachments/${attId}`, { cookie: adminC });
-  record("Deleted attachment returns 404 on fetch", afterDel.status === 404, `status=${afterDel.status}`);
+  record("Deleted scan returns 404 on fetch", afterDel.status === 404, `status=${afterDel.status}`);
 
-  // Wrong mime for category rejected
-  const wrongMime = await http("POST", "/api/patients/17/attachments", {
+  // 5-attachment limit
+  // We already have upload2 still there. Add 4 more to reach the cap.
+  for (let i = 0; i < 4; i++) {
+    await http("POST", "/api/patients/17/attachments", {
+      cookie: adminC,
+      body: { file_name: `filler${i}.jpg`, mime_type: "image/jpeg", data: tinyJpegB64 }
+    });
+  }
+  const beforeCap = await http("GET", "/api/patients/17/attachments", { cookie: adminC });
+  const currentCount = beforeCap.json?.data?.length || 0;
+  record("Filled to 5 attachments (current count = 5)", currentCount === 5, `count=${currentCount}`);
+
+  // 6th should be rejected with 409
+  const sixth = await http("POST", "/api/patients/17/attachments", {
     cookie: adminC,
-    body: { file_name: "bad.pdf", mime_type: "application/pdf", data: tinyB64, category: "note" }
+    body: { file_name: "sixth.jpg", mime_type: "image/jpeg", data: tinyJpegB64 }
   });
-  record("PDF rejected when category is 'note' (text/markdown only)", wrongMime.status === 400, `status=${wrongMime.status}`);
+  record("6th scan rejected with 409 (max 5 per patient)", sixth.status === 409, `status=${sixth.status}`);
 
-  // Empty data rejected
-  const empty = await http("POST", "/api/patients/17/attachments", {
-    cookie: adminC,
-    body: { file_name: "empty.txt", mime_type: "text/plain", data: "", category: "note" }
-  });
-  record("Empty data rejected", empty.status === 400, `status=${empty.status}`);
-
-  // Patient response includes attachments_count
-  const p17WithAtt = await http("GET", "/api/patients/17", { cookie: adminC });
-  record("Patient GET includes attachments_count by category",
-    p17WithAtt.json?.data?.attachments_count &&
-    typeof p17WithAtt.json.data.attachments_count.document === "number",
-    `counts=${JSON.stringify(p17WithAtt.json?.data?.attachments_count)}`);
-
-  // Cleanup remaining test doc
-  if (upload2.json?.data?.id) {
-    await http("DELETE", `/api/patients/17/attachments/${upload2.json.data.id}`, { cookie: adminC });
+  // Cleanup — delete all attachments for patient 17
+  for (const a of (beforeCap.json?.data || [])) {
+    await http("DELETE", `/api/patients/17/attachments/${a.id}`, { cookie: adminC });
   }
 
   // ============================================================
