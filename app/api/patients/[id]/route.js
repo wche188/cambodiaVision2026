@@ -21,6 +21,7 @@ export async function GET(request, { params }) {
       gpExaminationRows,
       surgeryDecisionRows,
       surgeryRecordRows,
+      attachmentCountRows,
     ] = await Promise.all([
       db.execute('SELECT * FROM gp_examinations WHERE patient_id = ? ORDER BY examined_at DESC LIMIT 1', [id]),
       db.execute('SELECT * FROM surgery_decisions WHERE patient_id = ? ORDER BY decided_at DESC LIMIT 1', [id]),
@@ -30,6 +31,14 @@ export async function GET(request, { params }) {
          LEFT JOIN surgeons s ON sr.surgeon_id = s.id
          WHERE sr.patient_id = ?
          ORDER BY sr.created_at ASC`,
+        [id]
+      ),
+      // Just the count for the patient page; metadata only (no base64 data)
+      db.execute(
+        `SELECT category, COUNT(*) AS cnt
+         FROM patient_attachments
+         WHERE patient_id = ?
+         GROUP BY category`,
         [id]
       ),
     ]);
@@ -58,6 +67,10 @@ export async function GET(request, { params }) {
       gp_examination: gpExaminationRows[0][0] || null,
       surgery_decision: surgeryDecisionRows[0][0] || null,
       surgery_records: surgeryRecords,
+      attachments_count: (attachmentCountRows[0] || []).reduce(
+        (acc, r) => ({ ...acc, [r.category]: Number(r.cnt) }),
+        { document: 0, note: 0, other: 0 }
+      ),
     };
 
     return Response.json({

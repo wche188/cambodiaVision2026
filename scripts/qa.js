@@ -310,6 +310,108 @@ async function checkApi(name, method, path, cookie, { body, expectStatus = 200 }
   record("Patient 1 (NULL procedure_type) returns 200 without error", p1.status === 200, `status=${p1.status}`);
 
   // ============================================================
+  console.log("\n--- 11d. PATIENT ATTACHMENTS (upload, list, download, edit note, delete) ---");
+  // ============================================================
+  // Test the full attachment lifecycle on patient 17.
+  // Use a tiny text payload to keep things fast.
+  const tinyText = "Attachment test " + Date.now();
+  const tinyB64 = Buffer.from(tinyText).toString("base64");
+
+  // Admin uploads
+  const upload1 = await http("POST", "/api/patients/17/attachments", {
+    cookie: adminC,
+    body: { file_name: "qa-test.txt", mime_type: "text/plain", data: tinyB64, category: "note", note: "qa initial" }
+  });
+  const attId = upload1.json?.data?.id;
+  record("Admin uploads attachment (text/plain, note category)",
+    upload1.status === 200 && attId > 0,
+    `status=${upload1.status}, id=${attId}`);
+
+  // Doctor can also upload
+  const upload2 = await http("POST", "/api/patients/17/attachments", {
+    cookie: doctorCookie,
+    body: { file_name: "qa-test-doc.pdf", mime_type: "application/pdf", data: tinyB64, category: "document" }
+  });
+  record("Station manager uploads attachment (admin or station_manager allowed)",
+    upload2.status === 200,
+    `status=${upload2.status}`);
+
+  // Volunteer cannot upload
+  const volUpload = await http("POST", "/api/patients/17/attachments", {
+    cookie: volCookie,
+    body: { file_name: "should-fail.txt", mime_type: "text/plain", data: tinyB64, category: "note" }
+  });
+  record("Volunteer cannot upload (403 forbidden)", volUpload.status === 403, `status=${volUpload.status}`);
+
+  // List as admin
+  const listAtt = await http("GET", "/api/patients/17/attachments", { cookie: adminC });
+  const atts = listAtt.json?.data || [];
+  record("Admin can list attachments (>=2)", atts.length >= 2, `count=${atts.length}`);
+
+  // Volunteer can also list (read access)
+  const listAttVol = await http("GET", "/api/patients/17/attachments", { cookie: volCookie });
+  record("Volunteer can list attachments (read-only)", listAttVol.status === 200, `status=${listAttVol.status}`);
+
+  // Download
+  const dlAtt = await http("GET", `/api/patients/17/attachments/${attId}`, { cookie: adminC });
+  const dlText = (dlAtt.body || "").toString();
+  record("Download attachment returns matching bytes", dlAtt.status === 200 && dlText.includes(tinyText),
+    `status=${dlAtt.status}, match=${dlText.includes(tinyText)}`);
+
+  // Admin can edit the note
+  const patchAtt = await http("PATCH", `/api/patients/17/attachments/${attId}`, {
+    cookie: adminC, body: { note: "qa updated note" }
+  });
+  record("Admin can edit attachment note", patchAtt.status === 200, `status=${patchAtt.status}`);
+  const listAfterPatch = await http("GET", "/api/patients/17/attachments", { cookie: adminC });
+  const updated = (listAfterPatch.json?.data || []).find(a => a.id === attId);
+  record("Note was actually updated in DB", updated?.note === "qa updated note", `note=${updated?.note}`);
+
+  // Station manager CANNOT edit note
+  const patchDr = await http("PATCH", `/api/patients/17/attachments/${attId}`, {
+    cookie: doctorCookie, body: { note: "should fail" }
+  });
+  record("Station manager cannot edit note (admin-only)", patchDr.status === 403, `status=${patchDr.status}`);
+
+  // Station manager CANNOT delete
+  const delDr = await http("DELETE", `/api/patients/17/attachments/${attId}`, { cookie: doctorCookie });
+  record("Station manager cannot delete (admin-only)", delDr.status === 403, `status=${delDr.status}`);
+
+  // Admin can delete
+  const delAtt = await http("DELETE", `/api/patients/17/attachments/${attId}`, { cookie: adminC });
+  record("Admin can delete attachment", delAtt.status === 200, `status=${delAtt.status}`);
+
+  // Verify it's gone
+  const afterDel = await http("GET", `/api/patients/17/attachments/${attId}`, { cookie: adminC });
+  record("Deleted attachment returns 404 on fetch", afterDel.status === 404, `status=${afterDel.status}`);
+
+  // Wrong mime for category rejected
+  const wrongMime = await http("POST", "/api/patients/17/attachments", {
+    cookie: adminC,
+    body: { file_name: "bad.pdf", mime_type: "application/pdf", data: tinyB64, category: "note" }
+  });
+  record("PDF rejected when category is 'note' (text/markdown only)", wrongMime.status === 400, `status=${wrongMime.status}`);
+
+  // Empty data rejected
+  const empty = await http("POST", "/api/patients/17/attachments", {
+    cookie: adminC,
+    body: { file_name: "empty.txt", mime_type: "text/plain", data: "", category: "note" }
+  });
+  record("Empty data rejected", empty.status === 400, `status=${empty.status}`);
+
+  // Patient response includes attachments_count
+  const p17WithAtt = await http("GET", "/api/patients/17", { cookie: adminC });
+  record("Patient GET includes attachments_count by category",
+    p17WithAtt.json?.data?.attachments_count &&
+    typeof p17WithAtt.json.data.attachments_count.document === "number",
+    `counts=${JSON.stringify(p17WithAtt.json?.data?.attachments_count)}`);
+
+  // Cleanup remaining test doc
+  if (upload2.json?.data?.id) {
+    await http("DELETE", `/api/patients/17/attachments/${upload2.json.data.id}`, { cookie: adminC });
+  }
+
+  // ============================================================
   console.log("\n--- 11c. STATUS TRANSITIONS (Prepare_for_Surgery, Surgery_Completed) ---");
   // ============================================================
   // This test creates a fresh test patient, walks them through:

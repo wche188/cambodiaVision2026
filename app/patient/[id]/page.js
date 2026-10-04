@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, User, Phone, MapPin, Calendar, FileText, Loader2, Scissors, Eye, AlertCircle, Stethoscope } from 'lucide-react';
+import { ArrowLeft, User, Phone, MapPin, Calendar, FileText, Loader2, Scissors, Eye, AlertCircle, Stethoscope, Paperclip, Upload, Camera, Edit2, Trash2, Download, X, Check } from 'lucide-react';
 import StatusBadge from '@/app/components/StatusBadge';
 import BilingualLabel from '@/app/components/BilingualLabel';
 import { t } from '@/lib/translations';
@@ -51,6 +51,34 @@ export default function PatientDetailPage() {
   const isStationManager = session?.role === 'station_manager';
   const canEditStations = isAdmin;
   const canDownloadSurgeryForm = isAdmin || isStationManager;
+  const canUploadAttachment = isAdmin || isStationManager;
+  const canEditAttachmentNote = isAdmin;
+  const canDeleteAttachment = isAdmin;
+
+  const [showPhotoDialog, setShowPhotoDialog] = useState(false);
+  const [attachments, setAttachments] = useState([]);
+  const [attachmentsLoading, setAttachmentsLoading] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteValue, setEditingNoteValue] = useState('');
+
+  const fetchAttachments = useCallback(async () => {
+    setAttachmentsLoading(true);
+    try {
+      const res = await fetch(`/api/patients/${id}/attachments`);
+      if (res.ok) {
+        const json = await res.json();
+        setAttachments(json.data || []);
+      }
+    } catch (e) {
+      console.error('Error fetching attachments:', e);
+    } finally {
+      setAttachmentsLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchAttachments();
+  }, [fetchAttachments]);
 
   const toggleStation = async (station) => {
     if (!isAdmin) return;
@@ -103,8 +131,12 @@ export default function PatientDetailPage() {
         {/* Photo + Name Section */}
         <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-            {/* Patient Photo */}
-            <div className="w-40 h-40 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200">
+            {/* Patient Photo (clickable for admin to retake) */}
+            <div
+              className={`w-40 h-40 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border border-gray-200 relative group ${isAdmin ? 'cursor-pointer' : ''}`}
+              onClick={() => isAdmin && setShowPhotoDialog(true)}
+              title={isAdmin ? 'Click to retake / upload photo' : undefined}
+            >
               {patient.photo ? (
                 <img
                   src={patient.photo}
@@ -113,6 +145,11 @@ export default function PatientDetailPage() {
                 />
               ) : (
                 <User className="h-16 w-16 text-gray-300" />
+              )}
+              {isAdmin && (
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <Camera className="h-8 w-8 text-white" />
+                </div>
               )}
             </div>
 
@@ -240,7 +277,510 @@ export default function PatientDetailPage() {
         {patient.surgery_records && patient.surgery_records.length > 0 && (
           <SurgeryInformation surgeries={patient.surgery_records} />
         )}
+
+        {/* Attachments — uploaded files for this patient (always shown) */}
+        <AttachmentsSection
+          attachments={attachments}
+          loading={attachmentsLoading}
+          canUpload={canUploadAttachment}
+          canEditNote={canEditAttachmentNote}
+          canDelete={canDeleteAttachment}
+          patientId={id}
+          onUploaded={() => fetchAttachments()}
+          onDeleted={() => fetchAttachments()}
+          editingNoteId={editingNoteId}
+          setEditingNoteId={setEditingNoteId}
+          editingNoteValue={editingNoteValue}
+          setEditingNoteValue={setEditingNoteValue}
+        />
       </main>
+
+      {showPhotoDialog && isAdmin && (
+        <PhotoDialog
+          patientId={id}
+          hasPhoto={!!patient.photo}
+          onClose={() => setShowPhotoDialog(false)}
+          onUpdated={(newPhoto) => {
+            setPatient(prev => prev ? { ...prev, photo: newPhoto } : prev);
+            setShowPhotoDialog(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// Photo retake / upload dialog (admin only)
+// ============================================================
+function PhotoDialog({ patientId, hasPhoto, onClose, onUpdated }) {
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // Downscale images > 1280px so we don't ship 5MB base64 blobs to the DB
+      const processed = await downscaleImage(file, 1280, 0.85);
+      const reader = new FileReader();
+      const dataUrl = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(processed);
+      });
+      const res = await fetch(`/api/patients/${patientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo: dataUrl }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Upload failed (HTTP ${res.status})`);
+      }
+      const json = await res.json();
+      onUpdated(json.data?.photo || dataUrl);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!confirm('Remove the patient photo?')) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/patients/${patientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo: null }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Remove failed (HTTP ${res.status})`);
+      }
+      onUpdated(null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Camera className="w-5 h-5" />
+            {hasPhoto ? 'Replace photo' : 'Add photo'}
+          </h3>
+          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {/* Camera capture (mobile) */}
+          <button
+            onClick={() => cameraInputRef.current?.click()}
+            disabled={busy}
+            className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-left"
+          >
+            <Camera className="w-5 h-5 text-blue-600" />
+            <div>
+              <p className="font-medium text-gray-900">Take photo</p>
+              <p className="text-xs text-gray-500">Use the camera (mobile)</p>
+            </div>
+          </button>
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFile}
+            className="hidden"
+          />
+
+          {/* Upload from device */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={busy}
+            className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-left"
+          >
+            <Upload className="w-5 h-5 text-indigo-600" />
+            <div>
+              <p className="font-medium text-gray-900">Upload from device</p>
+              <p className="text-xs text-gray-500">Choose an image file</p>
+            </div>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFile}
+            className="hidden"
+          />
+
+          {hasPhoto && (
+            <button
+              onClick={handleRemove}
+              disabled={busy}
+              className="w-full flex items-center gap-3 px-4 py-3 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 text-left"
+            >
+              <Trash2 className="w-5 h-5 text-red-600" />
+              <div>
+                <p className="font-medium text-red-700">Remove photo</p>
+                <p className="text-xs text-red-500">Deletes the current photo</p>
+              </div>
+            </button>
+          )}
+
+          {busy && (
+            <div className="flex items-center justify-center gap-2 pt-2 text-sm text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Working...
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Downscale an image to max width × max height using canvas, with JPEG quality.
+// Returns a Promise<File>.
+async function downscaleImage(file, maxSide, quality) {
+  if (!file.type.startsWith('image/')) return file;
+  const img = await new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const i = new window.Image();
+    i.onload = () => { URL.revokeObjectURL(url); resolve(i); };
+    i.onerror = reject;
+    i.src = url;
+  });
+  const w0 = img.naturalWidth || img.width;
+  const h0 = img.naturalHeight || img.height;
+  const scale = Math.min(1, maxSide / Math.max(w0, h0));
+  if (scale >= 1 && file.size < 1.5 * 1024 * 1024) {
+    // No need to downscale
+    return file;
+  }
+  const w = Math.round(w0 * scale);
+  const h = Math.round(h0 * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, w, h);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+  if (!blob) return file;
+  return new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+}
+
+// ============================================================
+// Attachments section
+// ============================================================
+function AttachmentsSection({
+  attachments, loading, canUpload, canEditNote, canDelete, patientId,
+  onUploaded, onDeleted, editingNoteId, setEditingNoteId,
+  editingNoteValue, setEditingNoteValue,
+}) {
+  const fileInputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const [category, setCategory] = useState('document');
+  const [noteDraft, setNoteDraft] = useState('');
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const reader = new FileReader();
+      const dataUrl = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch(`/api/patients/${patientId}/attachments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file_name: file.name,
+          mime_type: file.type || 'application/octet-stream',
+          data: dataUrl,
+          category,
+          note: noteDraft.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Upload failed (HTTP ${res.status})`);
+      }
+      setNoteDraft('');
+      e.target.value = '';
+      onUploaded();
+    } catch (e) {
+      setUploadError(e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const startEditNote = (att) => {
+    setEditingNoteId(att.id);
+    setEditingNoteValue(att.note || '');
+  };
+
+  const saveNote = async (att) => {
+    try {
+      const res = await fetch(`/api/patients/${patientId}/attachments/${att.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: editingNoteValue }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Save failed (HTTP ${res.status})`);
+      }
+      setEditingNoteId(null);
+      onUploaded(); // refresh
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  const handleDelete = async (att) => {
+    if (!confirm(`Delete "${att.file_name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/patients/${patientId}/attachments/${att.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `Delete failed (HTTP ${res.status})`);
+      }
+      onDeleted();
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
+  return (
+    <section
+      data-testid="attachments-section"
+      className="bg-amber-50 rounded-xl border border-amber-200 p-6"
+    >
+      <h2 className="text-lg font-semibold text-amber-900 mb-4 flex items-center gap-2">
+        <Paperclip className="w-5 h-5" />
+        Attachments
+        <span className="text-sm font-normal text-amber-700">ឯកសារភ្ជាប់</span>
+        <span className="ml-auto text-xs font-normal text-amber-600">
+          {attachments.length} {attachments.length === 1 ? 'file' : 'files'}
+        </span>
+      </h2>
+
+      {canUpload && (
+        <div className="mb-4 p-3 bg-white border border-amber-200 rounded-lg">
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
+            <div className="flex-1">
+              <label className="block text-xs text-gray-500 mb-1">Category</label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
+                disabled={uploading}
+              >
+                <option value="document">Document (PDF, DOCX, etc.)</option>
+                <option value="note">Note (text/markdown)</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div className="flex-[2]">
+              <label className="block text-xs text-gray-500 mb-1">Note (optional)</label>
+              <input
+                type="text"
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                placeholder="e.g. Pre-op retinal scan"
+                className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
+                disabled={uploading}
+              />
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 min-h-[40px] bg-amber-600 text-white text-sm font-medium rounded hover:bg-amber-700 transition-colors disabled:opacity-50"
+            >
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {uploading ? 'Uploading...' : 'Upload file'}
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleUpload}
+            className="hidden"
+          />
+          {uploadError && (
+            <p className="mt-2 text-sm text-red-600">{uploadError}</p>
+          )}
+          <p className="mt-2 text-xs text-gray-500">
+            Max 5 MB. Documents, notes, and images are stored in the patient record.
+          </p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading attachments...
+        </div>
+      ) : attachments.length === 0 ? (
+        <p className="text-sm text-gray-500 italic">No attachments yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {attachments.map((att) => (
+            <AttachmentItem
+              key={att.id}
+              att={att}
+              patientId={patientId}
+              canEditNote={canEditNote}
+              canDelete={canDelete}
+              isEditingNote={editingNoteId === att.id}
+              noteValue={editingNoteValue}
+              setNoteValue={setEditingNoteValue}
+              onStartEditNote={() => startEditNote(att)}
+              onCancelEditNote={() => setEditingNoteId(null)}
+              onSaveNote={() => saveNote(att)}
+              onDelete={() => handleDelete(att)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function AttachmentItem({
+  att, patientId, canEditNote, canDelete,
+  isEditingNote, noteValue, setNoteValue,
+  onStartEditNote, onCancelEditNote, onSaveNote, onDelete,
+}) {
+  const isImage = (att.mime_type || '').startsWith('image/');
+  const sizeKb = (att.size_bytes / 1024).toFixed(1);
+  const dateLabel = att.created_at
+    ? new Date(att.created_at).toLocaleString('en-GB', { year: 'numeric', month: 'short', day: '2-digit' })
+    : '';
+
+  const categoryColor = {
+    document: 'bg-blue-100 text-blue-700',
+    note: 'bg-yellow-100 text-yellow-700',
+    other: 'bg-gray-100 text-gray-700',
+  }[att.category] || 'bg-gray-100 text-gray-700';
+
+  return (
+    <div className="bg-white border border-amber-200 rounded-lg p-3 shadow-sm">
+      <div className="flex items-start gap-3">
+        {isImage ? (
+          <img
+            src={`/api/patients/${patientId}/attachments/${att.id}`}
+            alt={att.file_name}
+            className="w-12 h-12 object-cover rounded border border-gray-200 flex-shrink-0"
+          />
+        ) : (
+          <div className="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-6 h-6 text-gray-500" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium text-gray-900 truncate">{att.file_name}</p>
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${categoryColor}`}>{att.category}</span>
+            <span className="text-xs text-gray-400">{sizeKb} KB</span>
+            {dateLabel && <span className="text-xs text-gray-400">· {dateLabel}</span>}
+          </div>
+
+          {/* Note — view or edit (admin only) */}
+          {isEditingNote ? (
+            <div className="mt-2 flex gap-1">
+              <input
+                type="text"
+                value={noteValue}
+                onChange={(e) => setNoteValue(e.target.value)}
+                className="flex-1 px-2 py-1 text-sm border border-gray-200 rounded"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onSaveNote();
+                  if (e.key === 'Escape') onCancelEditNote();
+                }}
+              />
+              <button onClick={onSaveNote} className="p-1 text-green-600 hover:bg-green-50 rounded" title="Save">
+                <Check className="w-4 h-4" />
+              </button>
+              <button onClick={onCancelEditNote} className="p-1 text-gray-500 hover:bg-gray-100 rounded" title="Cancel">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 mt-0.5">
+              <p className={`text-xs ${att.note ? 'text-gray-600' : 'text-gray-400 italic'}`}>
+                {att.note || 'No note'}
+              </p>
+              {canEditNote && (
+                <button
+                  onClick={onStartEditNote}
+                  className="p-0.5 text-gray-400 hover:text-blue-600 rounded"
+                  title="Edit note"
+                >
+                  <Edit2 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {att.uploaded_by && (
+            <p className="text-xs text-gray-400 mt-0.5">uploaded by {att.uploaded_by}</p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <a
+            href={`/api/patients/${patientId}/attachments/${att.id}`}
+            download={att.file_name}
+            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+            title="Download"
+          >
+            <Download className="w-4 h-4" />
+          </a>
+          {canDelete && (
+            <button
+              onClick={onDelete}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+              title="Delete (admin only)"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
