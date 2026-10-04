@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { sessionOptions } from './lib/session';
 
 const PUBLIC_PATHS = ['/login', '/api/auth/login'];
-const ADMIN_PATHS = ['/admin', '/api/admin'];
+const ADMIN_PATHS = ['/admin', '/api/admin', '/api/patients/report'];
 
 // Paths volunteers are allowed to access
 const VOLUNTEER_PATHS = [

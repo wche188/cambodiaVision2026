@@ -27,7 +27,7 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
 
     const fields = [];
@@ -56,7 +56,7 @@ export async function PUT(request, { params }) {
 
     values.push(id);
 
-    const query = `UPDATE patients SET ${fields.join(, )} WHERE id = ?`;
+    const query = `UPDATE patients SET ${fields.join(', ')} WHERE id = ?`;
     const [result] = await pool.execute(query, values);
 
     if (result.affectedRows === 0) {

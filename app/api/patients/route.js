@@ -88,7 +88,16 @@ export async function POST(request) {
       // Validate age is a number if provided
       if (age !== undefined && age !== null && (typeof age !== 'number' || isNaN(age))) {
         return Response.json(
-          { data: null, error: 'Invalid input' },
+          { data: null, error: 'Invalid input: age must be a number' },
+          { status: 400 }
+        );
+      }
+
+      // Validate gender against the DB enum (Male, Female, Child)
+      const VALID_GENDERS = ['Male', 'Female', 'Child'];
+      if (gender !== undefined && gender !== null && !VALID_GENDERS.includes(gender)) {
+        return Response.json(
+          { data: null, error: `Invalid input: gender must be one of ${VALID_GENDERS.join(', ')}` },
           { status: 400 }
         );
       }
@@ -117,7 +126,7 @@ export async function POST(request) {
         commune || null,
         reason_for_visit || null,
         photo || null,
-        registration_date || null,
+        registration_date || new Date().toISOString().split('T')[0],
       ];
 
       const [result] = await pool.execute(query, params);
